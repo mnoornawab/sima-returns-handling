@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SIMA Eyewear Returns Handling</title>
+<title>SIMA Eyewear Returns and Handling Charges Calculator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -44,6 +44,8 @@
     .modal-list tr.selected { background: #d3e8fc;}
     .modal-list tr:hover { background:#e5e5e5; cursor:pointer;}
     .modal-actions { margin-top:12px;text-align:right;}
+    #rinvSection { margin-top:24px; }
+    #rinvSection table { margin-top:5px; }
     @media print {
         .no-print { display: none !important; }
         #printableArea, #printableArea * { visibility: visible; }
@@ -55,11 +57,11 @@
 </style>
 </head>
 <body>
-    <h1>SIMA Eyewear Returns Handling Calculator</h1>
+    <h1>SIMA Eyewear Returns and Handling Charges Calculator</h1>
     <div class="section">
         <h2>Sales Report Data</h2>
         <div id="dataStatus" class="data-empty">
-            Loading sales report data from GitHub...
+            Loading sales report data ...
         </div>
     </div>
 
@@ -122,7 +124,7 @@
     <div id="invoiceModal" class="modal no-print">
         <div class="modal-content">
             <h3>Select Invoice for Return</h3>
-            <p>Multiple uncredited invoices found for this style code. Please select the correct invoice for the return:</p>
+            <p>Multiple invoices found for this style code. Please select the correct invoice for the return:</p>
             <table class="modal-list">
                 <thead>
                     <tr>
@@ -135,6 +137,20 @@
                 <tbody id="invoiceModalList">
                 </tbody>
             </table>
+            <div id="rinvSection" style="margin-top:26px;display:none">
+                <div style="margin-bottom:3px;font-weight:bold;">Return Invoices (RINV) for this style:</div>
+                <table class="modal-list">
+                    <thead>
+                        <tr>
+                            <th>Return Invoice</th>
+                            <th>Date</th>
+                            <th>Qty</th>
+                            <th>Selling Price Exc VAT</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rinvModalList"></tbody>
+                </table>
+            </div>
             <div class="modal-actions">
                 <button id="invoiceModalOk" class="success" disabled>Use Selected</button>
                 <button id="invoiceModalCancel" class="danger">Cancel</button>
@@ -261,29 +277,20 @@ function expandForInvoices(inputRow, styleCode, customer) {
         /^INV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
     // All return invoice numbers (RINV-xxxxx or RINV-xxxxx-1 etc)
-    const rinvNumbersSet = new Set(
-        invRows
-            .filter(row => /^RINV-\d+/.test(getVal(row, "INVOICE NUMBER")))
-            .map(row => getVal(row, "INVOICE NUMBER").match(/^RINV-(\d+)/)?.[1])
-            .filter(Boolean)
+    const rinvNumbers = invRows.filter(row =>
+        /^RINV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
-    // Filter ONLY invoices that are not yet credited (no matching RINV)
-    const filteredInvs = invNumbers.filter(row => {
-        const invNumPart = getVal(row, "INVOICE NUMBER").match(/^INV-(\d+)/)?.[1];
-        return invNumPart && !rinvNumbersSet.has(invNumPart);
-    });
-    if (filteredInvs.length === 0) {
+    if (invNumbers.length === 0) {
         updateTotals();
         return;
     }
-    if (filteredInvs.length === 1) {
-        insertInvoiceRow(inputRow, styleCode, filteredInvs[0]);
+    if (invNumbers.length === 1) {
+        insertInvoiceRow(inputRow, styleCode, invNumbers[0]);
     } else {
-        // Open modal for user to select invoice
-        modalInvoices = filteredInvs;
+        modalInvoices = invNumbers;
         modalSelectedIndex = -1;
         pendingInputRow = inputRow;
-        showInvoiceModal(filteredInvs);
+        showInvoiceModal(invNumbers, rinvNumbers);
     }
     updateRemoveButtons();
     updateTotals();
@@ -320,7 +327,7 @@ function insertInvoiceRow(inputRow, styleCode, inv) {
     inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
     calculateRowHandling(tr);
 }
-function showInvoiceModal(invoices) {
+function showInvoiceModal(invoices, rinvs) {
     const modal = document.getElementById('invoiceModal');
     const list = document.getElementById('invoiceModalList');
     list.innerHTML = "";
@@ -340,6 +347,26 @@ function showInvoiceModal(invoices) {
         });
         list.appendChild(tr);
     });
+    // RINV section
+    const rinvSection = document.getElementById('rinvSection');
+    const rinvList = document.getElementById('rinvModalList');
+    if (rinvs && rinvs.length > 0) {
+        rinvSection.style.display = '';
+        rinvList.innerHTML = '';
+        rinvs.forEach(rinv => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${getVal(rinv, "INVOICE NUMBER")}</td>
+                <td>${getVal(rinv, "Date")}</td>
+                <td>${getVal(rinv, "QTY")}</td>
+                <td>${getVal(rinv, "SELLING PRICE EXCL. VAT")}</td>
+            `;
+            rinvList.appendChild(tr);
+        });
+    } else {
+        rinvSection.style.display = 'none';
+        rinvList.innerHTML = '';
+    }
     document.getElementById('invoiceModalOk').disabled = true;
     modal.style.display = "block";
 }
@@ -412,7 +439,9 @@ function updateTotals() {
 }
 function printReport() {
     const printableArea = document.getElementById('printableArea');
+    const customerName = document.getElementById('customerSelect').value || '';
     let html = `<h1 style="font-size:16px;">SIMA Eyewear Returns Handling Report</h1>
+                <p><strong>Customer:</strong> ${customerName}</p>
                 <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
                 <table border="1" cellpadding="3" cellspacing="0" width="100%" style="font-size:11px;">
                 <tr>
@@ -459,10 +488,13 @@ function printReport() {
 }
 function downloadPDF() {
     const doc = new window.jspdf.jsPDF({orientation: "landscape"});
+    const customerName = document.getElementById('customerSelect').value || '';
     doc.setFontSize(12);
-    doc.text("SIMA Eyewear Returns Handling Report", 10, 15);
-    doc.setFontSize(8);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 22);
+    doc.text("SIMA Eyewear Returns Handling Report", 10, 13);
+    doc.setFontSize(10);
+    doc.text(`Customer: ${customerName}`, 10, 19);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 24);
+
     const headers = [["Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
     let body = [];
     let seq = 1;

@@ -9,7 +9,7 @@
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
             color: #333;
@@ -35,8 +35,6 @@
             padding: 8px 12px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            width: 100%;
-            box-sizing: border-box;
             font-size: 16px;
         }
         button {
@@ -46,6 +44,7 @@
             cursor: pointer;
             margin-top: 15px;
             transition: background-color 0.3s;
+            padding: 10px 15px;
         }
         button:hover {
             background-color: #2980b9;
@@ -72,12 +71,18 @@
             background-color: #f8d7da;
             color: #721c24;
         }
-        #results {
-            margin-top: 20px;
-            padding: 15px;
-            background: #e8f4fc;
-            border-radius: 4px;
-            display: none;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
         }
         .file-input-container {
             position: relative;
@@ -111,25 +116,6 @@
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
-        #itemsList {
-            margin: 20px 0;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-        .item-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            align-items: center;
-        }
-        .item-row.header {
-            font-weight: bold;
-            background: #f0f0f0;
-        }
-        .item-row:last-child {
-            border-bottom: none;
-        }
         .action-buttons {
             display: flex;
             gap: 10px;
@@ -155,10 +141,6 @@
         @media (max-width: 768px) {
             .two-columns {
                 grid-template-columns: 1fr;
-            }
-            .item-row {
-                grid-template-columns: 1fr;
-                gap: 5px;
             }
         }
     </style>
@@ -196,45 +178,48 @@
     </div>
     
     <div class="section" id="calculatorSection" style="display: none;">
-        <h2>Calculate Handling Charge</h2>
+        <h2>Return Items</h2>
         
-        <label for="customerSelect">Customer:</label>
-        <select id="customerSelect">
-            <option value="">-- Select Customer --</option>
-        </select>
+        <table id="returnsTable">
+            <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Item Code</th>
+                    <th>Invoice Number</th>
+                    <th>Return Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <select class="customer-select">
+                            <option value="">Select Customer</option>
+                        </select>
+                    </td>
+                    <td><input type="text" class="item-code" placeholder="Item Code"></td>
+                    <td>
+                        <select class="invoice-select" disabled>
+                            <option value="">Select Customer & Item</option>
+                        </select>
+                    </td>
+                    <td><input type="date" class="return-date" value="<?php echo date('Y-m-d'); ?>"></td>
+                    <td><button class="add-row-btn success">+ Add</button></td>
+                </tr>
+            </tbody>
+        </table>
         
-        <label for="itemCodeInput">Item Code:</label>
-        <input type="text" id="itemCodeInput" placeholder="Enter item code">
-        
-        <label for="returnDateInput">Return Date:</label>
-        <input type="date" id="returnDateInput">
-        
-        <label for="invoiceSelect">Invoice:</label>
-        <select id="invoiceSelect" disabled>
-            <option value="">-- Select customer and item first --</option>
-        </select>
-        
-        <div class="action-buttons">
-            <button id="addItemBtn" class="success">Add Item</button>
-            <button id="calculateBtn">Calculate Charges</button>
+        <div class="action-buttons no-print">
+            <button id="calculateBtn">Calculate Handling Charges</button>
         </div>
         
-        <div id="itemsList" style="display: none;">
-            <div class="item-row header">
-                <div>Item</div>
-                <div>Invoice</div>
-                <div>Invoice Date</div>
-                <div>Months</div>
-                <div>Charge</div>
-            </div>
-            <!-- Items will be added here dynamically -->
-        </div>
-        
-        <div id="results" class="no-print">
-            <div id="resultDetails"></div>
-            <div class="action-buttons">
+        <div id="results" style="display: none;">
+            <h2>Handling Charges Summary</h2>
+            <div id="summaryResults"></div>
+            
+            <div class="action-buttons no-print">
                 <button id="printBtn" class="secondary">Print Report</button>
-                <button id="resetBtn" class="danger">Reset Form</button>
+                <button id="resetBtn" class="danger">Start New Return</button>
             </div>
         </div>
         
@@ -242,10 +227,15 @@
     </div>
 
     <script>
+        // Global variables
+        let salesData = [];
+        const SALES_DATA_KEY = 'sima_sales_data';
+        const LAST_UPLOAD_KEY = 'sima_last_upload';
+        
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
             // Set today's date as default return date
-            document.getElementById('returnDateInput').valueAsDate = new Date();
+            document.querySelector('.return-date').valueAsDate = new Date();
             
             // Check if we have existing data
             checkExistingData();
@@ -254,19 +244,18 @@
             setupEventListeners();
         });
         
-        // Global variables
-        let salesData = [];
-        let currentItems = [];
-        const SALES_DATA_KEY = 'sima_sales_data';
-        const LAST_UPLOAD_KEY = 'sima_last_upload';
-        
         function checkExistingData() {
             const savedData = localStorage.getItem(SALES_DATA_KEY);
             if (savedData) {
-                salesData = JSON.parse(savedData);
-                updateDataStatus(true);
-                populateCustomerDropdown();
-                document.getElementById('calculatorSection').style.display = 'block';
+                try {
+                    salesData = JSON.parse(savedData);
+                    updateDataStatus(true);
+                    populateCustomerDropdowns();
+                    document.getElementById('calculatorSection').style.display = 'block';
+                } catch (e) {
+                    console.error("Error parsing saved data:", e);
+                    clearAllData();
+                }
             }
         }
         
@@ -278,7 +267,7 @@
                 statusElement.className = 'data-loaded';
             } else {
                 statusElement.textContent = 'No sales report data loaded. Please upload your monthly sales report.';
-                statusElement.className = 'data-empty';
+                statusClass = 'data-empty';
             }
         }
         
@@ -286,14 +275,8 @@
             // File upload handling
             document.getElementById('fileInput').addEventListener('change', handleFileUpload);
             
-            // Customer dropdown change
-            document.getElementById('customerSelect').addEventListener('change', updateInvoiceDropdown);
-            
-            // Item code input change
-            document.getElementById('itemCodeInput').addEventListener('input', updateInvoiceDropdown);
-            
-            // Add item button
-            document.getElementById('addItemBtn').addEventListener('click', addItem);
+            // Clear data button
+            document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
             
             // Calculate button
             document.getElementById('calculateBtn').addEventListener('click', calculateAllCharges);
@@ -304,8 +287,21 @@
             // Reset button
             document.getElementById('resetBtn').addEventListener('click', resetForm);
             
-            // Clear data button
-            document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
+            // Delegate events for dynamic elements
+            document.getElementById('returnsTable').addEventListener('change', function(e) {
+                if (e.target.classList.contains('customer-select') || e.target.classList.contains('item-code')) {
+                    updateInvoiceDropdown(e.target);
+                }
+            });
+            
+            document.getElementById('returnsTable').addEventListener('click', function(e) {
+                if (e.target.classList.contains('add-row-btn')) {
+                    addNewRow();
+                }
+                if (e.target.classList.contains('remove-row-btn')) {
+                    e.target.closest('tr').remove();
+                }
+            });
         }
         
         function handleFileUpload(e) {
@@ -317,12 +313,26 @@
             Papa.parse(file, {
                 header: true,
                 complete: function(results) {
+                    if (results.data.length === 0) {
+                        alert('The uploaded file appears to be empty or invalid.');
+                        return;
+                    }
+                    
+                    // Normalize column names (trim and uppercase)
+                    const normalizedData = results.data.map(row => {
+                        const normalizedRow = {};
+                        for (const key in row) {
+                            normalizedRow[key.trim().toUpperCase()] = row[key];
+                        }
+                        return normalizedRow;
+                    });
+                    
                     if (updateMethod === 'replace') {
                         // Replace existing data
-                        salesData = results.data;
+                        salesData = normalizedData;
                     } else {
                         // Append new data (monthly update)
-                        salesData = [...(salesData || []), ...results.data];
+                        salesData = [...(salesData || []), ...normalizedData];
                     }
                     
                     // Save to localStorage
@@ -331,7 +341,7 @@
                     
                     // Update UI
                     updateDataStatus(true);
-                    populateCustomerDropdown();
+                    populateCustomerDropdowns();
                     document.getElementById('calculatorSection').style.display = 'block';
                     
                     // Reset file input
@@ -343,206 +353,185 @@
             });
         }
         
-        function populateCustomerDropdown() {
-            const customerSelect = document.getElementById('customerSelect');
-            customerSelect.innerHTML = '<option value="">-- Select Customer --</option>';
+        function populateCustomerDropdowns() {
+            const customerSelects = document.querySelectorAll('.customer-select');
             
             // Get unique customers
-            const customers = [...new Set(salesData.map(row => row.CUSTOMER))].sort();
+            const customers = [...new Set(salesData.map(row => row.CUSTOMER || row['CUSTOMER NAME'] || row.CLIENT))].filter(Boolean).sort();
             
-            customers.forEach(customer => {
-                const option = document.createElement('option');
-                option.value = customer;
-                option.textContent = customer;
-                customerSelect.appendChild(option);
+            customerSelects.forEach(select => {
+                // Save current selection
+                const currentValue = select.value;
+                
+                // Rebuild options
+                select.innerHTML = '<option value="">Select Customer</option>';
+                customers.forEach(customer => {
+                    const option = document.createElement('option');
+                    option.value = customer;
+                    option.textContent = customer;
+                    select.appendChild(option);
+                });
+                
+                // Restore selection if possible
+                if (currentValue && customers.includes(currentValue)) {
+                    select.value = currentValue;
+                }
             });
         }
         
-        function updateInvoiceDropdown() {
-            const customer = document.getElementById('customerSelect').value;
-            const itemCode = document.getElementById('itemCodeInput').value;
-            const invoiceSelect = document.getElementById('invoiceSelect');
+        function updateInvoiceDropdown(sourceElement) {
+            const row = sourceElement.closest('tr');
+            const customerSelect = row.querySelector('.customer-select');
+            const itemCodeInput = row.querySelector('.item-code');
+            const invoiceSelect = row.querySelector('.invoice-select');
             
-            invoiceSelect.innerHTML = '<option value="">-- Select Invoice --</option>';
+            invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';
             invoiceSelect.disabled = true;
             
+            const customer = customerSelect.value;
+            const itemCode = itemCodeInput.value;
+            
             if (customer && itemCode) {
-                const matchingInvoices = salesData.filter(row => 
-                    row.CUSTOMER === customer && 
-                    row.ITEMCODE === itemCode
-                );
+                const matchingInvoices = salesData.filter(row => {
+                    const rowCustomer = row.CUSTOMER || row['CUSTOMER NAME'] || row.CLIENT;
+                    const rowItemCode = row.ITEMCODE || row['ITEM CODE'] || row.SKU;
+                    return rowCustomer === customer && rowItemCode === itemCode;
+                });
                 
                 if (matchingInvoices.length > 0) {
                     invoiceSelect.disabled = false;
                     matchingInvoices.forEach(invoice => {
                         const option = document.createElement('option');
-                        option.value = invoice['INVOICE NUMBER'];
-                        option.textContent = `${invoice['INVOICE NUMBER']} - ${invoice.Date} (Qty: ${invoice.QTY})`;
+                        const invNumber = invoice['INVOICE NUMBER'] || invoice.INVOICE || invoice.INVNO;
+                        const invDate = invoice.DATE || invoice['INVOICE DATE'] || invoice.TRANSACTIONDATE;
+                        option.value = invNumber;
+                        option.textContent = `${invNumber} - ${invDate}`;
+                        option.dataset.invoiceDate = invDate;
                         invoiceSelect.appendChild(option);
                     });
                 }
             }
         }
         
-        function addItem() {
-            const customer = document.getElementById('customerSelect').value;
-            const itemCode = document.getElementById('itemCodeInput').value;
-            const invoiceNumber = document.getElementById('invoiceSelect').value;
-            const returnDate = document.getElementById('returnDateInput').value;
+        function addNewRow() {
+            const tbody = document.querySelector('#returnsTable tbody');
+            const newRow = document.createElement('tr');
             
-            if (!customer || !itemCode || !invoiceNumber || !returnDate) {
-                alert('Please fill in all fields before adding an item');
-                return;
-            }
+            newRow.innerHTML = `
+                <td>
+                    <select class="customer-select">
+                        <option value="">Select Customer</option>
+                    </select>
+                </td>
+                <td><input type="text" class="item-code" placeholder="Item Code"></td>
+                <td>
+                    <select class="invoice-select" disabled>
+                        <option value="">Select Customer & Item</option>
+                    </select>
+                </td>
+                <td><input type="date" class="return-date" value="${new Date().toISOString().split('T')[0]}"></td>
+                <td><button class="remove-row-btn danger">× Remove</button></td>
+            `;
             
-            const selectedInvoice = salesData.find(row => 
-                row['INVOICE NUMBER'] === invoiceNumber
-            );
-            
-            if (!selectedInvoice) {
-                alert('Selected invoice not found in data');
-                return;
-            }
-            
-            const newItem = {
-                customer,
-                itemCode,
-                invoiceNumber,
-                invoiceDate: selectedInvoice.Date,
-                returnDate,
-                brand: selectedInvoice.BRAND,
-                style: selectedInvoice.STYLE,
-                quantity: selectedInvoice.QTY,
-                sellingPrice: selectedInvoice['SELLING PRICE INCL. VAT']
-            };
-            
-            currentItems.push(newItem);
-            updateItemsList();
-            
-            // Clear item-specific fields for next entry
-            document.getElementById('itemCodeInput').value = '';
-            document.getElementById('invoiceSelect').value = '';
-            document.getElementById('invoiceSelect').disabled = true;
-        }
-        
-        function updateItemsList() {
-            const itemsList = document.getElementById('itemsList');
-            itemsList.style.display = currentItems.length > 0 ? 'block' : 'none';
-            
-            // Clear existing items (except header)
-            while (itemsList.children.length > 1) {
-                itemsList.removeChild(itemsList.lastChild);
-            }
-            
-            // Add current items
-            currentItems.forEach((item, index) => {
-                const itemRow = document.createElement('div');
-                itemRow.className = 'item-row';
-                
-                // Calculate months difference
-                const monthsDiff = calculateMonthsDifference(item.invoiceDate, item.returnDate);
-                
-                itemRow.innerHTML = `
-                    <div>${item.itemCode} (${item.brand} - ${item.style})</div>
-                    <div>${item.invoiceNumber}</div>
-                    <div>${item.invoiceDate}</div>
-                    <div>${monthsDiff}</div>
-                    <div>${calculateChargePercentage(monthsDiff)}</div>
-                `;
-                
-                itemsList.appendChild(itemRow);
-            });
+            tbody.appendChild(newRow);
+            populateCustomerDropdowns();
         }
         
         function calculateAllCharges() {
-            if (currentItems.length === 0) {
-                alert('Please add at least one item before calculating');
+            const rows = document.querySelectorAll('#returnsTable tbody tr');
+            const returnItems = [];
+            
+            // Validate all rows first
+            for (const row of rows) {
+                const customerSelect = row.querySelector('.customer-select');
+                const itemCode = row.querySelector('.item-code').value;
+                const invoiceSelect = row.querySelector('.invoice-select');
+                const returnDate = row.querySelector('.return-date').value;
+                
+                if (!customerSelect.value || !itemCode || !invoiceSelect.value || !returnDate) {
+                    alert('Please complete all fields in all rows before calculating');
+                    return;
+                }
+                
+                const invoiceNumber = invoiceSelect.value;
+                const invoiceDate = invoiceSelect.options[invoiceSelect.selectedIndex].dataset.invoiceDate;
+                
+                // Find the original invoice data
+                const originalInvoice = salesData.find(row => {
+                    const invNumber = row['INVOICE NUMBER'] || row.INVOICE || row.INVNO;
+                    return invNumber === invoiceNumber;
+                });
+                
+                if (!originalInvoice) {
+                    alert(`Could not find original invoice data for ${invoiceNumber}`);
+                    return;
+                }
+                
+                returnItems.push({
+                    customer: customerSelect.value,
+                    itemCode: itemCode,
+                    invoiceNumber: invoiceNumber,
+                    invoiceDate: invoiceDate,
+                    returnDate: returnDate,
+                    brand: originalInvoice.BRAND || 'N/A',
+                    style: originalInvoice.STYLE || 'N/A',
+                    quantity: originalInvoice.QTY || 1,
+                    sellingPrice: originalInvoice['SELLING PRICE INCL. VAT'] || 
+                                 originalInvoice['SELLING PRICE'] || 
+                                 originalInvoice.AMOUNT || 0
+                });
+            }
+            
+            if (returnItems.length === 0) {
+                alert('No valid return items to calculate');
                 return;
             }
             
-            const customer = currentItems[0].customer; // All items should be for same customer
-            const returnDate = currentItems[0].returnDate; // Using first item's return date
-            
+            // Calculate summary
             let totalItems = 0;
-            let totalValue = 0;
-            let handlingCharges = {
-                '0%': 0,
-                '12%': 0,
-                '50%': 0,
-                'Not accepted': 0
+            let totalOriginalValue = 0;
+            let totalHandlingValue = 0;
+            const chargeSummary = {
+                '0%': { count: 0, value: 0 },
+                '12%': { count: 0, value: 0 },
+                '50%': { count: 0, value: 0 },
+                'Not accepted': { count: 0, value: 0 }
             };
             
-            const resultsDiv = document.getElementById('results');
-            const resultDetails = document.getElementById('resultDetails');
-            
-            // Calculate summary
-            currentItems.forEach(item => {
-                totalItems++;
-                totalValue += parseFloat(item.sellingPrice) || 0;
-                
-                const monthsDiff = calculateMonthsDifference(item.invoiceDate, returnDate);
+            const detailedResults = returnItems.map(item => {
+                const monthsDiff = calculateMonthsDifference(item.invoiceDate, item.returnDate);
                 const charge = calculateChargePercentage(monthsDiff);
-                handlingCharges[charge]++;
+                const handlingValue = calculateHandlingAmount(parseFloat(item.sellingPrice), charge);
+                
+                totalItems++;
+                totalOriginalValue += parseFloat(item.sellingPrice);
+                totalHandlingValue += handlingValue;
+                
+                chargeSummary[charge].count++;
+                chargeSummary[charge].value += handlingValue;
+                
+                return {
+                    ...item,
+                    monthsDiff: monthsDiff,
+                    charge: charge,
+                    handlingValue: handlingValue
+                };
             });
             
-            // Generate printable content
-            const printableArea = document.getElementById('printableArea');
-            printableArea.innerHTML = `
-                <h1>SIMA Eyewear Returns Handling Report</h1>
-                <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-                <p><strong>Customer:</strong> ${customer}</p>
-                <p><strong>Return Date:</strong> ${returnDate}</p>
-                
-                <h2>Items Summary</h2>
-                <table border="1" cellpadding="5" cellspacing="0" width="100%">
-                    <tr>
-                        <th>Item Code</th>
-                        <th>Brand/Style</th>
-                        <th>Invoice #</th>
-                        <th>Invoice Date</th>
-                        <th>Months</th>
-                        <th>Charge</th>
-                        <th>Original Value</th>
-                    </tr>
-                    ${currentItems.map(item => {
-                        const monthsDiff = calculateMonthsDifference(item.invoiceDate, returnDate);
-                        const charge = calculateChargePercentage(monthsDiff);
-                        return `
-                        <tr>
-                            <td>${item.itemCode}</td>
-                            <td>${item.brand} - ${item.style}</td>
-                            <td>${item.invoiceNumber}</td>
-                            <td>${item.invoiceDate}</td>
-                            <td>${monthsDiff}</td>
-                            <td>${charge}</td>
-                            <td>R ${parseFloat(item.sellingPrice).toFixed(2)}</td>
-                        </tr>
-                        `;
-                    }).join('')}
-                </table>
-                
-                <h2>Summary</h2>
-                <p><strong>Total Items:</strong> ${totalItems}</p>
-                <p><strong>Total Original Value:</strong> R ${totalValue.toFixed(2)}</p>
-                <p><strong>Handling Charges Breakdown:</strong></p>
-                <ul>
-                    ${Object.entries(handlingCharges).map(([charge, count]) => 
-                        count > 0 ? `<li>${charge}: ${count} items</li>` : ''
-                    ).join('')}
-                </ul>
-                
-                <p class="highlight">Note: This is a handling charge calculation only. Final amounts subject to verification.</p>
-            `;
-            
-            // Show results section
-            resultsDiv.style.display = 'block';
+            // Display results
+            displayResults(detailedResults, {
+                totalItems,
+                totalOriginalValue,
+                totalHandlingValue,
+                chargeSummary
+            });
         }
         
-        function calculateMonthsDifference(invoiceDateStr, returnDateStr) {
-            const invoiceDate = new Date(invoiceDateStr);
-            const returnDate = new Date(returnDateStr);
-            return (returnDate.getFullYear() - invoiceDate.getFullYear()) * 12 + 
-                   (returnDate.getMonth() - invoiceDate.getMonth());
+        function calculateMonthsDifference(startDateStr, endDateStr) {
+            const startDate = new Date(startDateStr);
+            const endDate = new Date(endDateStr);
+            return (endDate.getFullYear() - startDate.getFullYear()) * 12 + 
+                   (endDate.getMonth() - startDate.getMonth());
         }
         
         function calculateChargePercentage(monthsDiff) {
@@ -552,43 +541,140 @@
             return "0%";
         }
         
+        function calculateHandlingAmount(originalAmount, charge) {
+            if (charge === "Not accepted") return 0;
+            if (charge === "50%") return originalAmount * 0.5;
+            if (charge === "12%") return originalAmount * 0.12;
+            return 0;
+        }
+        
+        function displayResults(detailedResults, summary) {
+            const resultsDiv = document.getElementById('results');
+            const summaryDiv = document.getElementById('summaryResults');
+            const printableArea = document.getElementById('printableArea');
+            
+            // Create printable content
+            printableArea.innerHTML = `
+                <h1>SIMA Eyewear Returns Handling Report</h1>
+                <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                <p><strong>Customer:</strong> ${detailedResults[0].customer}</p>
+                <p><strong>Total Items:</strong> ${summary.totalItems}</p>
+                
+                <h2>Items Details</h2>
+                <table border="1" cellpadding="5" cellspacing="0" width="100%">
+                    <tr>
+                        <th>Item Code</th>
+                        <th>Brand/Style</th>
+                        <th>Invoice #</th>
+                        <th>Invoice Date</th>
+                        <th>Return Date</th>
+                        <th>Months</th>
+                        <th>Charge</th>
+                        <th>Original Value</th>
+                        <th>Handling Value</th>
+                    </tr>
+                    ${detailedResults.map(item => `
+                        <tr>
+                            <td>${item.itemCode}</td>
+                            <td>${item.brand} - ${item.style}</td>
+                            <td>${item.invoiceNumber}</td>
+                            <td>${item.invoiceDate}</td>
+                            <td>${item.returnDate}</td>
+                            <td>${item.monthsDiff}</td>
+                            <td>${item.charge}</td>
+                            <td>R ${parseFloat(item.sellingPrice).toFixed(2)}</td>
+                            <td>R ${item.handlingValue.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </table>
+                
+                <h2>Summary</h2>
+                <table border="1" cellpadding="5" cellspacing="0" width="100%">
+                    <tr>
+                        <th>Charge Type</th>
+                        <th>Item Count</th>
+                        <th>Total Value</th>
+                    </tr>
+                    ${Object.entries(summary.chargeSummary).map(([charge, data]) => `
+                        <tr>
+                            <td>${charge}</td>
+                            <td>${data.count}</td>
+                            <td>R ${data.value.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                    <tr class="highlight">
+                        <td><strong>Grand Total</strong></td>
+                        <td><strong>${summary.totalItems}</strong></td>
+                        <td><strong>R ${summary.totalHandlingValue.toFixed(2)}</strong></td>
+                    </tr>
+                </table>
+                
+                <p class="highlight">Note: This is a handling charge calculation only. Final amounts subject to verification.</p>
+                <p>Printed on: ${new Date().toLocaleString()}</p>
+            `;
+            
+            // Create on-screen summary
+            summaryDiv.innerHTML = `
+                <h3>Summary of Charges</h3>
+                <p><strong>Total Items Processed:</strong> ${summary.totalItems}</p>
+                <p><strong>Total Original Value:</strong> R ${summary.totalOriginalValue.toFixed(2)}</p>
+                <p><strong>Total Handling Charges:</strong> R ${summary.totalHandlingValue.toFixed(2)}</p>
+                
+                <h3>Breakdown by Charge Type</h3>
+                <table>
+                    <tr>
+                        <th>Charge Type</th>
+                        <th>Item Count</th>
+                        <th>Total Value</th>
+                    </tr>
+                    ${Object.entries(summary.chargeSummary).filter(([_, data]) => data.count > 0).map(([charge, data]) => `
+                        <tr>
+                            <td>${charge}</td>
+                            <td>${data.count}</td>
+                            <td>R ${data.value.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </table>
+            `;
+            
+            resultsDiv.style.display = 'block';
+        }
+        
         function printReport() {
-            // Show printable area temporarily
             const printableArea = document.getElementById('printableArea');
             printableArea.style.display = 'block';
-            
-            // Print only the printable area
             window.print();
-            
-            // Hide it again
             printableArea.style.display = 'none';
         }
         
         function resetForm() {
-            // Clear current items
-            currentItems = [];
-            updateItemsList();
+            // Clear all rows except the first one
+            const tbody = document.querySelector('#returnsTable tbody');
+            while (tbody.rows.length > 1) {
+                tbody.deleteRow(1);
+            }
             
-            // Reset form fields
-            document.getElementById('customerSelect').value = '';
-            document.getElementById('itemCodeInput').value = '';
-            document.getElementById('returnDateInput').valueAsDate = new Date();
-            document.getElementById('invoiceSelect').value = '';
-            document.getElementById('invoiceSelect').disabled = true;
+            // Reset the first row
+            const firstRow = tbody.rows[0];
+            firstRow.querySelector('.customer-select').value = '';
+            firstRow.querySelector('.item-code').value = '';
+            firstRow.querySelector('.invoice-select').innerHTML = '<option value="">Select Customer & Item</option>';
+            firstRow.querySelector('.invoice-select').disabled = true;
+            firstRow.querySelector('.return-date').valueAsDate = new Date();
             
             // Hide results
             document.getElementById('results').style.display = 'none';
         }
         
         function clearAllData() {
-            if (confirm('Are you sure you want to clear all sales data? This cannot be undone.')) {
+            if (confirm('Are you sure you want to clear ALL sales data? This cannot be undone.')) {
                 localStorage.removeItem(SALES_DATA_KEY);
                 localStorage.removeItem(LAST_UPLOAD_KEY);
                 salesData = [];
-                currentItems = [];
                 updateDataStatus(false);
                 resetForm();
                 document.getElementById('calculatorSection').style.display = 'none';
+                alert('All sales data has been cleared. Please upload a new sales report.');
             }
         }
     </script>

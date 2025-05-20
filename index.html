@@ -121,6 +121,15 @@
             gap: 10px;
             margin-top: 20px;
         }
+        #uploadProgress {
+            margin:10px 0;
+            display:none;
+        }
+        #progressBar {
+            width:200px;
+            display:none;
+            vertical-align: middle;
+        }
         @media print {
             body * {
                 visibility: hidden;
@@ -153,28 +162,35 @@
         <div id="dataStatus" class="data-empty">
             No sales report data loaded. Please upload your monthly sales report.
         </div>
-        
-        <div class="file-input-container">
-            <label class="file-input-label" for="fileInput">Upload Monthly Sales Report (CSV)</label>
-            <input type="file" id="fileInput" accept=".csv">
-        </div>
-        
-        <div class="two-columns">
-            <div>
-                <label>
-                    <input type="radio" name="updateMethod" value="replace" checked> 
-                    Replace existing data (start fresh)
-                </label>
+
+        <div id="uploadSection">
+            <div class="file-input-container">
+                <label id="fileInputLabel" class="file-input-label" for="fileInput">Upload Monthly Sales Report (CSV)</label>
+                <input type="file" id="fileInput" accept=".csv">
             </div>
-            <div>
-                <label>
-                    <input type="radio" name="updateMethod" value="append"> 
-                    Append to existing data (monthly update)
-                </label>
+            <div id="uploadProgress">
+                <span id="progressMessage">Uploading...</span>
+                <progress id="progressBar" value="0" max="100"></progress>
             </div>
+            <div class="two-columns" id="updateOptions">
+                <div>
+                    <label>
+                        <input type="radio" name="updateMethod" value="replace" checked> 
+                        Replace existing data (start fresh)
+                    </label>
+                </div>
+                <div>
+                    <label>
+                        <input type="radio" name="updateMethod" value="append"> 
+                        Append to existing data (monthly update)
+                    </label>
+                </div>
+            </div>
+            <button id="clearDataBtn" class="danger">Clear All Sales Data</button>
         </div>
-        
-        <button id="clearDataBtn" class="danger">Clear All Sales Data</button>
+        <div id="uploadOnlyFirstMsg" style="display:none; color:#721c24; background:#f8d7da; padding:10px; border-radius:4px; margin-top:10px;">
+            Sales report can only be updated on the 1st of each month. Please return on the 1st to update.
+        </div>
     </div>
     
     <div class="section" id="calculatorSection" style="display: none;">
@@ -313,6 +329,9 @@
         function handleFileUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
+            document.getElementById('uploadProgress').style.display = 'block';
+            document.getElementById('progressMessage').textContent = 'Uploading and processing file...';
+            document.getElementById('progressBar').style.display = 'none';
 
             const updateMethod = document.querySelector('input[name="updateMethod"]:checked').value;
             Papa.parse(file, {
@@ -321,12 +340,13 @@
                 complete: function(results) {
                     if (!results.data.length) {
                         showStatus('The uploaded file is empty or invalid.', false);
+                        document.getElementById('progressMessage').textContent = 'Upload failed: Empty or invalid file.';
                         return;
                     }
-                    // Normalize and validate
                     const normalized = results.data.map(normalizeRow).filter(row => !!row['INVOICE NUMBER'] && !!row['ITEM CODE']);
                     if (!normalized.length) {
                         showStatus('No valid rows found (missing Invoice Number or Item Code).', false);
+                        document.getElementById('progressMessage').textContent = 'Upload failed: No valid rows found.';
                         return;
                     }
                     let result;
@@ -339,10 +359,12 @@
                     populateCustomerDropdowns();
                     document.getElementById('calculatorSection').style.display = 'block';
                     showStatus(`Upload complete. Added: ${result.added}, Duplicates skipped: ${result.duplicates}`, true);
+                    document.getElementById('progressMessage').textContent = `Upload complete! ${result.added} added, ${result.duplicates} duplicates skipped.`;
                     e.target.value = '';
                 },
                 error: function(error) {
                     showStatus('Error parsing file: ' + error.message, false);
+                    document.getElementById('progressMessage').textContent = 'Upload failed: Error parsing file.';
                 }
             });
         }
@@ -661,20 +683,26 @@
         function setupEventListeners() {
             // File upload handling
             document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+
             // Clear data button
             document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
+
             // Calculate button
             document.getElementById('calculateBtn').addEventListener('click', calculateAllCharges);
+
             // Print button
             document.getElementById('printBtn').addEventListener('click', printReport);
+
             // Reset button
             document.getElementById('resetBtn').addEventListener('click', resetForm);
+
             // Delegate events for dynamic elements
             document.getElementById('returnsTable').addEventListener('change', function(e) {
                 if (e.target.classList.contains('customer-select') || e.target.classList.contains('item-code')) {
                     updateInvoiceDropdown(e.target);
                 }
             });
+
             document.getElementById('returnsTable').addEventListener('click', function(e) {
                 if (e.target.classList.contains('add-row-btn')) {
                     addNewRow();
@@ -683,6 +711,21 @@
                     e.target.closest('tr').remove();
                 }
             });
+        }
+
+        // Control upload visibility: only on the 1st of the month
+        function setUploadVisibility() {
+            const now = new Date();
+            const day = now.getDate();
+            const uploadSection = document.getElementById('uploadSection');
+            const uploadMsg = document.getElementById('uploadOnlyFirstMsg');
+            if (day === 1) {
+                uploadSection.style.display = "";
+                uploadMsg.style.display = "none";
+            } else {
+                uploadSection.style.display = "none";
+                uploadMsg.style.display = "";
+            }
         }
 
         // On page load: initialize default values and check storage
@@ -699,6 +742,7 @@
             } else {
                 updateDataStatus(false);
             }
+            setUploadVisibility();
             setupEventListeners();
         });
     </script>

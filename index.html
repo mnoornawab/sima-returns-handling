@@ -6,10 +6,11 @@
     <title>SIMA Eyewear Returns Handling</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; color: #333; }
         h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        .section { background: #f9f9f9; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+        .section { background: #f9f9f9; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);}
         label { display: block; margin: 10px 0 5px; font-weight: bold; }
         input, select, button { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
         button { background-color: #3498db; color: white; border: none; cursor: pointer; margin-top: 15px; transition: background-color 0.3s; padding: 10px 15px;}
@@ -21,18 +22,17 @@
         .data-loaded { background-color: #d4edda; color: #155724; }
         .data-empty { background-color: #f8d7da; color: #721c24; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0;}
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; vertical-align: middle;}
         th { background-color: #e5e5e5; }
-        tr.input-row, tr.expanded { background: #fff; }
-        tr.expanded { background: #f4faff; }
-        .highlight { font-weight: bold; color: #e74c3c; font-size: 1.1em; }
+        tr.data-row { background: #fff; }
+        tr.data-row:nth-child(even) { background: #f8fafe; }
+        .readonly { background: #f3f3f3; }
+        .qty-input, .return-date-input { background: #f8fcff; width: 70px; }
+        .remove-row-btn { background: #dc3545; color: #fff; border: none; border-radius: 4px; padding: 4px 12px; font-size: 18px; cursor: pointer;}
+        .remove-row-btn:hover { background: #b02a37; }
         .totals-row { font-weight: bold; background: #d3e8fc; }
         .hidden { display: none !important; }
-        .readonly { background: #eee; }
         #customerSearch { width: 100%; margin-bottom: 10px; }
-        .remove-invoice-btn { background: #dc3545; color: #fff; border: none; border-radius: 4px; padding: 5px 12px; font-size: 18px; cursor: pointer;}
-        .remove-invoice-btn:hover { background: #b02a37; }
-        .qty-input, .return-date-input { background: #f8fcff; }
         .action-buttons button { margin-right: 10px; }
         @media print {
             .no-print { display: none !important; }
@@ -80,7 +80,6 @@
                     </tr>
                 </thead>
                 <tbody id="returnsTableBody">
-                    <!-- Rows injected here -->
                 </tbody>
                 <tfoot>
                     <tr class="totals-row">
@@ -114,14 +113,13 @@
     let salesData = [];
     let allCustomers = [];
     let headerMap = {};
-    const DEFAULT_LINES = 15;
+    const DEFAULT_LINES = 5;
 
     function todayStr() {
         const t = new Date();
         return t.toISOString().slice(0,10);
     }
 
-    // Utility: robust column mapping
     function mapHeaders(row) {
         if (Object.keys(headerMap).length === 0) {
             for (const key in row) {
@@ -160,37 +158,32 @@
         });
     }
 
-    // Generate empty input rows for style code entry
     function renderInputLines(lines = DEFAULT_LINES) {
         const tbody = document.getElementById('returnsTableBody');
         tbody.innerHTML = "";
         for (let i = 0; i < lines; i++) {
-            const tr = document.createElement('tr');
-            tr.classList.add('input-row');
-            tr.innerHTML = `
-                <td class="seq-no">${i + 1}</td>
-                <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
-                <td colspan="8"></td>
-                <td><button type="button" class="remove-line-btn danger" style="display:none;">×</button></td>
-            `;
-            tbody.appendChild(tr);
+            addInputRow(i + 1);
         }
         updateTotals();
     }
 
-    // Add a new empty input line at the end
-    function addInputLine() {
+    function addInputRow(seqNo) {
         const tbody = document.getElementById('returnsTableBody');
-        const idx = tbody.querySelectorAll('tr.input-row').length + 1;
         const tr = document.createElement('tr');
-        tr.classList.add('input-row');
+        tr.classList.add('input-row', 'data-row');
         tr.innerHTML = `
-            <td class="seq-no">${idx}</td>
+            <td class="seq-no">${seqNo}</td>
             <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
             <td colspan="8"></td>
-            <td><button type="button" class="remove-line-btn danger">×</button></td>
+            <td><button type="button" class="remove-row-btn danger" style="display:none;">×</button></td>
         `;
         tbody.appendChild(tr);
+    }
+
+    function addLineBtnHandler() {
+        const tbody = document.getElementById('returnsTableBody');
+        const idx = tbody.querySelectorAll('tr.input-row').length + 1;
+        addInputRow(idx);
         updateRemoveButtons();
         updateTotals();
     }
@@ -198,14 +191,18 @@
     function updateRemoveButtons() {
         const rows = document.querySelectorAll('tr.input-row');
         rows.forEach((row, i) => {
-            const btn = row.querySelector('.remove-line-btn');
+            const btn = row.querySelector('.remove-row-btn');
             if (rows.length > DEFAULT_LINES) btn.style.display = '';
             else btn.style.display = 'none';
         });
+        document.querySelectorAll('.data-row').forEach((row, i) => {
+            if (row.classList.contains('input-row')) return;
+            const btn = row.querySelector('.remove-row-btn');
+            if (btn) btn.style.display = '';
+        });
     }
 
-    // Remove a line (input row)
-    function removeInputLine(row) {
+    function removeRow(row) {
         row.parentNode.removeChild(row);
         updateSeqNos();
         updateRemoveButtons();
@@ -213,17 +210,20 @@
     }
 
     function updateSeqNos() {
-        document.querySelectorAll('tr.input-row').forEach((row, i) => {
-            row.querySelector('.seq-no').textContent = i + 1;
+        let seq = 1;
+        document.querySelectorAll('tr.input-row').forEach(row => {
+            row.querySelector('.seq-no').textContent = seq++;
         });
     }
 
-    // Use STYLE code for matching
+    // When a style code is entered, expand to show ALL matching invoices as data rows (fully aligned)
     function expandForInvoices(inputRow, styleCode, customer) {
-        // Remove any previously expanded row after this inputRow
+        // Remove any previously expanded rows after this inputRow (but not other input lines)
         let next = inputRow.nextElementSibling;
-        if (next && next.classList.contains('expanded')) {
-            next.remove();
+        while (next && next.classList.contains('data-row') && !next.classList.contains('input-row')) {
+            const toRemove = next;
+            next = next.nextElementSibling;
+            toRemove.remove();
         }
         if (!styleCode || !customer) {
             updateTotals();
@@ -249,65 +249,66 @@
             updateTotals();
             return;
         }
-        // Only show the first unused invoice for this style code
-        const inv = filteredInvs[0];
-        const maxQty = parseInt(getVal(inv, "QTY")) || 1;
-        const expandedTr = document.createElement('tr');
-        expandedTr.classList.add('expanded');
-        expandedTr.innerHTML = `
-            <td></td>
-            <td class="readonly">${styleCode}</td>
-            <td class="readonly">${getVal(inv, "INVOICE NUMBER")}</td>
-            <td class="readonly">${getVal(inv, "Date")}</td>
-            <td>
-                <input type="date" class="return-date-input" value="${todayStr()}" required style="width:140px"/>
-            </td>
-            <td>
-                <input type="number" class="qty-input" min="1" max="${maxQty}" value="1" style="width:60px;"/>
-            </td>
-            <td class="readonly">${getVal(inv, "SELLING PRICE EXCL. VAT") || ''}</td>
-            <td class="age-cell">0 Months 0 Days</td>
-            <td class="handling-pct-cell">0%</td>
-            <td class="handling-charge-cell">R 0.00</td>
-            <td><button type="button" class="remove-invoice-btn danger" title="Remove this line">×</button></td>
-        `;
-        expandedTr.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
-        expandedTr.dataset.invoiceDate = getVal(inv, "Date");
-        expandedTr.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
-        expandedTr.dataset.maxqty = maxQty;
-        // Insert as the next row after inputRow
-        inputRow.parentNode.insertBefore(expandedTr, inputRow.nextElementSibling);
-        calculateRowHandling(expandedTr);
+        // For each invoice, create a fully aligned row
+        filteredInvs.forEach(inv => {
+            const maxQty = parseInt(getVal(inv, "QTY")) || 1;
+            const tr = document.createElement('tr');
+            tr.classList.add('data-row');
+            tr.innerHTML = `
+                <td></td>
+                <td class="readonly">${styleCode}</td>
+                <td class="readonly">${getVal(inv, "INVOICE NUMBER")}</td>
+                <td class="readonly">${getVal(inv, "Date")}</td>
+                <td>
+                    <input type="date" class="return-date-input" value="${todayStr()}" required style="width:120px"/>
+                </td>
+                <td>
+                    <input type="number" class="qty-input" min="1" max="${maxQty}" value="1" style="width:60px;"/>
+                </td>
+                <td class="readonly">${getVal(inv, "SELLING PRICE EXCL. VAT") || ''}</td>
+                <td class="age-cell">0 Months 0 Days</td>
+                <td class="handling-pct-cell">0%</td>
+                <td class="handling-charge-cell">R 0.00</td>
+                <td><button type="button" class="remove-row-btn danger" title="Remove this line">×</button></td>
+            `;
+            tr.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
+            tr.dataset.invoiceDate = getVal(inv, "Date");
+            tr.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
+            tr.dataset.maxqty = maxQty;
+            inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
+            calculateRowHandling(tr); // initialize
+        });
+        updateRemoveButtons();
         updateTotals();
     }
 
-    function calculateRowHandling(expandedRow) {
-        const invDateStr = expandedRow.dataset.invoiceDate;
-        const returnDateInput = expandedRow.querySelector('.return-date-input');
-        const qtyInput = expandedRow.querySelector('.qty-input');
+    function calculateRowHandling(row) {
+        const invDateStr = row.dataset.invoiceDate;
+        const returnDateInput = row.querySelector('.return-date-input');
+        const qtyInput = row.querySelector('.qty-input');
         if (!invDateStr || !returnDateInput.value) {
-            expandedRow.querySelector('.age-cell').textContent = "0 Months 0 Days";
-            expandedRow.querySelector('.handling-pct-cell').textContent = "0%";
-            expandedRow.querySelector('.handling-charge-cell').textContent = "R 0.00";
+            row.querySelector('.age-cell').textContent = "0 Months 0 Days";
+            row.querySelector('.handling-pct-cell').textContent = "0%";
+            row.querySelector('.handling-charge-cell').textContent = "R 0.00";
             return;
         }
         const age = calcMonthsDays(invDateStr, returnDateInput.value);
-        expandedRow.querySelector('.age-cell').textContent = `${age.months} Months ${age.days} Days`;
+        row.querySelector('.age-cell').textContent = `${age.months} Months ${age.days} Days`;
 
         let pct = 0;
         if (age.months >= 24) pct = -1;
         else if (age.months >= 12) pct = 50;
         else if (age.months >= 6) pct = 12;
         else pct = 0;
-        expandedRow.querySelector('.handling-pct-cell').textContent = (pct < 0) ? "Not accepted" : (pct + "%");
+        row.querySelector('.handling-pct-cell').textContent = (pct < 0) ? "Not accepted" : (pct + "%");
 
-        const originalValue = parseFloat(expandedRow.dataset.amount || 0);
+        const originalValue = parseFloat(row.dataset.amount || 0);
         const qty = parseInt(qtyInput.value) || 1;
         let charge = "R 0.00";
         if (pct > 0) charge = "R " + (originalValue * qty * pct / 100).toFixed(2);
         else if (pct === 0) charge = "R 0.00";
         else if (pct < 0) charge = "-";
-        expandedRow.querySelector('.handling-charge-cell').textContent = charge;
+        row.querySelector('.handling-charge-cell').textContent = charge;
     }
 
     function calcMonthsDays(start, end) {
@@ -333,7 +334,8 @@
 
     function updateTotals() {
         let totalQty = 0, totalHandling = 0;
-        document.querySelectorAll('tr.expanded').forEach(row => {
+        document.querySelectorAll('tr.data-row').forEach(row => {
+            if (row.classList.contains('input-row')) return;
             if (row.style.display === "none") return;
             const qty = parseInt(row.querySelector('.qty-input')?.value || "0", 10);
             const charge = row.querySelector('.handling-charge-cell').textContent;
@@ -365,7 +367,8 @@
                         <th>Handling Charge</th>
                     </tr>`;
         let seq = 1;
-        document.querySelectorAll('tr.expanded').forEach(row => {
+        document.querySelectorAll('tr.data-row').forEach(row => {
+            if (row.classList.contains('input-row')) return;
             html += `<tr>
                 <td>${seq++}</td>
                 <td>${row.querySelector('td:nth-child(2)').textContent}</td>
@@ -397,14 +400,15 @@
 
     function downloadPDF() {
         const doc = new window.jspdf.jsPDF({orientation: "landscape"});
-        doc.setFontSize(16);
+        doc.setFontSize(14);
         doc.text("SIMA Eyewear Returns Handling Report", 10, 15);
         doc.setFontSize(10);
-        doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 23);
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 22);
         const headers = [["Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
         let body = [];
         let seq = 1;
-        document.querySelectorAll('tr.expanded').forEach(row => {
+        document.querySelectorAll('tr.data-row').forEach(row => {
+            if (row.classList.contains('input-row')) return;
             body.push([
                 seq++,
                 row.querySelector('td:nth-child(2)').textContent,
@@ -428,7 +432,22 @@
             doc.autoTable({
                 head: headers,
                 body: body,
-                startY: 30
+                startY: 28,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 2 },
+                headStyles: { fillColor: [229, 229, 229] },
+                columnStyles: {
+                    1: {cellWidth: 28},
+                    2: {cellWidth: 36},
+                    3: {cellWidth: 26},
+                    4: {cellWidth: 28},
+                    5: {cellWidth: 14},
+                    6: {cellWidth: 28},
+                    9: {cellWidth: 32}
+                },
+                pageBreak: 'auto',
+                tableWidth: 'auto',
+                margin: { left: 6, right: 6 }
             });
         }
         doc.save("returns_handling_report.pdf");
@@ -467,19 +486,12 @@
             renderInputLines(DEFAULT_LINES);
         });
 
-        document.getElementById('addLineBtn').addEventListener('click', function () {
-            addInputLine();
-        });
+        document.getElementById('addLineBtn').addEventListener('click', addLineBtnHandler);
 
         document.getElementById('returnsTableBody').addEventListener('click', function (e) {
-            if (e.target.classList.contains('remove-line-btn')) {
+            if (e.target.classList.contains('remove-row-btn')) {
                 const row = e.target.closest('tr');
-                removeInputLine(row);
-            }
-            if (e.target.classList.contains('remove-invoice-btn')) {
-                const row = e.target.closest('tr.expanded');
-                row.parentNode.removeChild(row);
-                updateTotals();
+                removeRow(row);
             }
         });
 
@@ -495,7 +507,8 @@
         document.getElementById('returnsTableBody').addEventListener('input', function (e) {
             if (e.target.classList.contains('return-date-input') ||
                 e.target.classList.contains('qty-input')) {
-                const expandedRow = e.target.closest('tr.expanded');
+                const dataRow = e.target.closest('tr.data-row');
+                if (!dataRow || dataRow.classList.contains('input-row')) return;
                 if (e.target.classList.contains('qty-input')) {
                     const min = parseInt(e.target.min) || 1;
                     const max = parseInt(e.target.max) || 1;
@@ -504,13 +517,15 @@
                     if (val > max) val = max;
                     e.target.value = val;
                 }
-                calculateRowHandling(expandedRow);
+                calculateRowHandling(dataRow);
                 updateTotals();
             }
         });
 
         document.getElementById('calculateBtn').addEventListener('click', function () {
-            document.querySelectorAll('tr.expanded').forEach(calculateRowHandling);
+            document.querySelectorAll('tr.data-row').forEach(row => {
+                if (!row.classList.contains('input-row')) calculateRowHandling(row);
+            });
             updateTotals();
         });
 

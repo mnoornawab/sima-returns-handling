@@ -26,19 +26,16 @@
         tr.invoice-row { background: #f7fafd; }
         tr.expanded { background: #f0f4ff; }
         .highlight { font-weight: bold; color: #e74c3c; font-size: 1.1em; }
-        .two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .action-buttons { display: flex; gap: 10px; margin-top: 20px; }
-        .no-print { display: none; }
-        .readonly { background: #eee; }
         .totals-row { font-weight: bold; background: #d3e8fc; }
         .hidden { display: none !important; }
+        .readonly { background: #eee; }
+        #customerSearch { width: 100%; margin-bottom: 10px; }
         @media print {
             .no-print { display: none !important; }
             #printableArea, #printableArea * { visibility: visible; }
             #printableArea { position: absolute; left: 0; top: 0; width: 100%; background: #fff; z-index: 9999;}
         }
         @media (max-width: 768px) {
-            .two-columns { grid-template-columns: 1fr; }
             table, th, td { font-size: 12px; }
         }
     </style>
@@ -53,7 +50,10 @@
     </div>
 
     <div class="section" id="calculatorSection" style="display: none;">
-        <label for="customerSelect">Select Customer:</label>
+        <label for="customerSearch">Search Customer:</label>
+        <input type="text" id="customerSearch" placeholder="Type to search..." autocomplete="off" />
+
+        <label for="customerSelect" style="margin-top:10px;">Select Customer:</label>
         <select id="customerSelect">
             <option value="">-- Select Customer --</option>
         </select>
@@ -106,451 +106,482 @@
     </div>
 
     <script>
-        // CSV file URL (updated!)
-        const SALES_CSV_URL = "https://media.githubusercontent.com/media/mnoornawab/sima-returns-handling/refs/heads/main/sales-reports/sales-report-latest.csv";
-        let salesData = [];
-        const DEFAULT_LINES = 15;
+    const SALES_CSV_URL = "https://media.githubusercontent.com/media/mnoornawab/sima-returns-handling/refs/heads/main/sales-reports/sales-report-latest.csv";
+    let salesData = [];
+    let allCustomers = [];
+    const DEFAULT_LINES = 15;
 
-        // Normalize row
-        function normalizeRow(row) {
-            const norm = {};
-            for (const key in row) {
-                norm[key.trim().toUpperCase()] = (row[key] || '').trim();
-            }
-            return norm;
+    // Utility: get "customer" and "item code" from your actual CSV headers
+    function getCustomerField(row) {
+        return row['CUSTOMER'] || "";
+    }
+    function getItemCodeField(row) {
+        return row['ITEMCODE'] || "";
+    }
+    function getInvoiceDateField(row) {
+        return row['Date'] || "";
+    }
+    function getAmountField(row) {
+        return row['SELLING PRICE EXCL. VAT'] || "";
+    }
+    function getQtyField(row) {
+        return row['QTY'] || "";
+    }
+
+    function updateDataStatus(hasData) {
+        const statusElement = document.getElementById('dataStatus');
+        if (hasData) {
+            statusElement.textContent = `Sales data loaded from GitHub. ${salesData.length} records available.`;
+            statusElement.className = 'data-loaded';
+        } else {
+            statusElement.textContent = 'No sales report data loaded. Please check the CSV file in the repo.';
+            statusElement.className = 'data-empty';
         }
+    }
 
-        function updateDataStatus(hasData) {
-            const statusElement = document.getElementById('dataStatus');
-            if (hasData) {
-                statusElement.textContent = `Sales data loaded from GitHub. ${salesData.length} records available.`;
-                statusElement.className = 'data-loaded';
-            } else {
-                statusElement.textContent = 'No sales report data loaded. Please check the CSV file in the repo.';
-                statusElement.className = 'data-empty';
-            }
-        }
+    function populateCustomerDropdown() {
+        const select = document.getElementById('customerSelect');
+        allCustomers = [...new Set(salesData.map(getCustomerField))]
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
+        select.innerHTML = '<option value="">-- Select Customer --</option>';
+        allCustomers.forEach(customer => {
+            const option = document.createElement('option');
+            option.value = customer;
+            option.textContent = customer;
+            select.appendChild(option);
+        });
+    }
 
-        function populateCustomerDropdown() {
-            const select = document.getElementById('customerSelect');
-            const customers = [...new Set(salesData.map(row => row['CUSTOMER'] || row['CUSTOMER NAME'] || row['CLIENT']))]
-                .filter(Boolean)
-                .sort();
-            select.innerHTML = '<option value="">-- Select Customer --</option>';
-            customers.forEach(customer => {
-                const option = document.createElement('option');
-                option.value = customer;
-                option.textContent = customer;
-                select.appendChild(option);
-            });
-        }
-
-        // Generate empty input rows for style code entry
-        function renderInputLines(lines = DEFAULT_LINES) {
-            const tbody = document.getElementById('returnsTableBody');
-            tbody.innerHTML = "";
-            for (let i = 0; i < lines; i++) {
-                const tr = document.createElement('tr');
-                tr.classList.add('input-row');
-                tr.innerHTML = `
-                    <td class="seq-no">${i + 1}</td>
-                    <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
-                    <td colspan="8"></td>
-                    <td><button type="button" class="remove-line-btn danger" style="display:none;">×</button></td>
-                `;
-                tbody.appendChild(tr);
-            }
-            updateTotals();
-        }
-
-        // Add a new empty input line at the end
-        function addInputLine() {
-            const tbody = document.getElementById('returnsTableBody');
-            const idx = tbody.querySelectorAll('tr.input-row').length + 1;
+    // Generate empty input rows for style code entry
+    function renderInputLines(lines = DEFAULT_LINES) {
+        const tbody = document.getElementById('returnsTableBody');
+        tbody.innerHTML = "";
+        for (let i = 0; i < lines; i++) {
             const tr = document.createElement('tr');
             tr.classList.add('input-row');
             tr.innerHTML = `
-                <td class="seq-no">${idx}</td>
+                <td class="seq-no">${i + 1}</td>
                 <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
                 <td colspan="8"></td>
-                <td><button type="button" class="remove-line-btn danger">×</button></td>
+                <td><button type="button" class="remove-line-btn danger" style="display:none;">×</button></td>
             `;
             tbody.appendChild(tr);
-            updateRemoveButtons();
+        }
+        updateTotals();
+    }
+
+    // Add a new empty input line at the end
+    function addInputLine() {
+        const tbody = document.getElementById('returnsTableBody');
+        const idx = tbody.querySelectorAll('tr.input-row').length + 1;
+        const tr = document.createElement('tr');
+        tr.classList.add('input-row');
+        tr.innerHTML = `
+            <td class="seq-no">${idx}</td>
+            <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
+            <td colspan="8"></td>
+            <td><button type="button" class="remove-line-btn danger">×</button></td>
+        `;
+        tbody.appendChild(tr);
+        updateRemoveButtons();
+        updateTotals();
+    }
+
+    function updateRemoveButtons() {
+        // Show remove button only if more than DEFAULT_LINES
+        const rows = document.querySelectorAll('tr.input-row');
+        rows.forEach((row, i) => {
+            const btn = row.querySelector('.remove-line-btn');
+            if (rows.length > DEFAULT_LINES) btn.style.display = '';
+            else btn.style.display = 'none';
+        });
+    }
+
+    // Remove a line (input row)
+    function removeInputLine(row) {
+        // Also remove expanded rows after this input row
+        let next = row.nextElementSibling;
+        while (next && next.classList.contains('expanded')) {
+            const toRemove = next;
+            next = next.nextElementSibling;
+            toRemove.remove();
+        }
+        row.parentNode.removeChild(row);
+        updateSeqNos();
+        updateRemoveButtons();
+        updateTotals();
+    }
+
+    // Update sequence numbers after row removal
+    function updateSeqNos() {
+        document.querySelectorAll('tr.input-row').forEach((row, i) => {
+            row.querySelector('.seq-no').textContent = i + 1;
+        });
+    }
+
+    // When a style code is entered, expand to show lines for each matching invoice (excluding RINV and INV with paired RINV)
+    function expandForInvoices(inputRow, itemCode, customer) {
+        let next = inputRow.nextElementSibling;
+        while (next && next.classList.contains('expanded')) {
+            const toRemove = next;
+            next = next.nextElementSibling;
+            toRemove.remove();
+        }
+        if (!itemCode || !customer) {
             updateTotals();
+            return;
         }
 
-        function updateRemoveButtons() {
-            // Show remove button only if more than DEFAULT_LINES
-            const rows = document.querySelectorAll('tr.input-row');
-            rows.forEach((row, i) => {
-                const btn = row.querySelector('.remove-line-btn');
-                if (rows.length > DEFAULT_LINES) btn.style.display = '';
-                else btn.style.display = 'none';
-            });
-        }
+        // Find all INV and RINV for this customer & item code
+        const invRows = salesData.filter(row =>
+            getCustomerField(row) === customer && getItemCodeField(row) === itemCode
+        );
+        const invNumbers = invRows.filter(row =>
+            /^INV-\d+/.test(row['INVOICE NUMBER'])
+        );
+        const rinvNumbersSet = new Set(
+            invRows
+                .filter(row => /^RINV-\d+/.test(row['INVOICE NUMBER']))
+                .map(row => row['INVOICE NUMBER'].replace(/^RINV-/, ""))
+        );
+        const filteredInvs = invNumbers.filter(row => {
+            const invNumPart = row['INVOICE NUMBER'].replace(/^INV-/, "");
+            return !rinvNumbersSet.has(invNumPart);
+        });
+        filteredInvs.forEach(inv => {
+            const maxQty = parseInt(getQtyField(inv)) || 1;
+            const tr = document.createElement('tr');
+            tr.classList.add('expanded', 'invoice-row');
+            tr.innerHTML = `
+                <td></td>
+                <td class="readonly">${itemCode}</td>
+                <td class="readonly">${inv['INVOICE NUMBER']}</td>
+                <td class="readonly">${getInvoiceDateField(inv)}</td>
+                <td><input type="date" class="return-date-input"/></td>
+                <td><input type="number" class="qty-input" min="1" max="${maxQty}" value="1" style="width:60px;"/></td>
+                <td class="readonly">${getAmountField(inv) || ''}</td>
+                <td class="age-cell">0 Months 0 Days</td>
+                <td class="handling-pct-cell">0%</td>
+                <td class="handling-charge-cell">R 0.00</td>
+                <td><button type="button" class="remove-invoice-btn danger" title="Remove this line">×</button></td>
+            `;
+            tr.dataset.invoiceNumber = inv['INVOICE NUMBER'];
+            tr.dataset.invoiceDate = getInvoiceDateField(inv);
+            tr.dataset.amount = getAmountField(inv) || 0;
+            tr.dataset.maxqty = maxQty;
+            inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
+        });
+        updateTotals();
+    }
 
-        // Remove a line (input row)
-        function removeInputLine(row) {
-            // Also remove expanded rows after this input row
-            let next = row.nextElementSibling;
-            while (next && next.classList.contains('expanded')) {
-                const toRemove = next;
-                next = next.nextElementSibling;
-                toRemove.remove();
+    // Calculate handling for a given invoice row
+    function calculateRowHandling(expandedRow) {
+        const invDateStr = expandedRow.dataset.invoiceDate;
+        const returnDateInput = expandedRow.querySelector('.return-date-input');
+        const qtyInput = expandedRow.querySelector('.qty-input');
+        if (!invDateStr || !returnDateInput.value) {
+            expandedRow.querySelector('.age-cell').textContent = "0 Months 0 Days";
+            expandedRow.querySelector('.handling-pct-cell').textContent = "0%";
+            expandedRow.querySelector('.handling-charge-cell').textContent = "R 0.00";
+            return;
+        }
+        const age = calcMonthsDays(invDateStr, returnDateInput.value);
+        expandedRow.querySelector('.age-cell').textContent = `${age.months} Months ${age.days} Days`;
+
+        // Handling logic:
+        // 0-5 months: 0%
+        // 6-11 months: 12%
+        // 12-23 months: 50%
+        // 24+ months: Not accepted
+        let pct = 0;
+        if (age.months >= 24) pct = -1;
+        else if (age.months >= 12) pct = 50;
+        else if (age.months >= 6) pct = 12;
+        else pct = 0;
+        expandedRow.querySelector('.handling-pct-cell').textContent = (pct < 0) ? "Not accepted" : (pct + "%");
+
+        // Amount
+        const originalValue = parseFloat(expandedRow.dataset.amount || 0);
+        const qty = parseInt(qtyInput.value) || 1;
+        let charge = "R 0.00";
+        if (pct > 0) charge = "R " + (originalValue * qty * pct / 100).toFixed(2);
+        else if (pct === 0) charge = "R 0.00";
+        else if (pct < 0) charge = "-";
+        expandedRow.querySelector('.handling-charge-cell').textContent = charge;
+    }
+
+    // Calculate months and days between dates
+    function calcMonthsDays(start, end) {
+        const d1 = new Date(start);
+        const d2 = new Date(end);
+        let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+        let days = d2.getDate() - d1.getDate();
+        if (days < 0) {
+            months--;
+            const prevMonth = new Date(d2.getFullYear(), d2.getMonth(), 0).getDate();
+            days += prevMonth;
+        }
+        if (months < 0) months = 0;
+        if (days < 0) days = 0;
+        return { months, days };
+    }
+
+    // Calculate totals for qty and handling charges
+    function updateTotals() {
+        let totalQty = 0, totalHandling = 0;
+        document.querySelectorAll('tr.expanded').forEach(row => {
+            // Only count rows with a visible input (in DOM)
+            if (row.style.display === "none") return;
+            const qty = parseInt(row.querySelector('.qty-input')?.value || "0", 10);
+            const charge = row.querySelector('.handling-charge-cell').textContent;
+            if (!isNaN(qty)) totalQty += qty;
+            if (charge && charge.startsWith("R ")) {
+                const val = parseFloat(charge.replace("R ", ""));
+                if (!isNaN(val)) totalHandling += val;
             }
-            row.parentNode.removeChild(row);
-            updateSeqNos();
-            updateRemoveButtons();
-            updateTotals();
-        }
+        });
+        document.getElementById('totalQty').textContent = totalQty;
+        document.getElementById('totalHandlingCharge').textContent = "R " + totalHandling.toFixed(2);
+    }
 
-        // Update sequence numbers after row removal
-        function updateSeqNos() {
-            document.querySelectorAll('tr.input-row').forEach((row, i) => {
-                row.querySelector('.seq-no').textContent = i + 1;
-            });
-        }
-
-        // When a style code is entered, expand to show lines for each matching invoice (excluding RINV and INV with paired RINV)
-        function expandForInvoices(inputRow, itemCode, customer) {
-            // Remove any previous expanded rows after this inputRow
-            let next = inputRow.nextElementSibling;
-            while (next && next.classList.contains('expanded')) {
-                const toRemove = next;
-                next = next.nextElementSibling;
-                toRemove.remove();
-            }
-            if (!itemCode || !customer) {
-                updateTotals();
-                return;
-            }
-
-            // 1. Find all INV and RINV for this customer & style code
-            const invRows = salesData.filter(row =>
-                ((row['CUSTOMER'] || row['CUSTOMER NAME'] || row['CLIENT']) === customer) &&
-                ((row['ITEM CODE'] || row['ITEMCODE'] || row['SKU']) === itemCode)
-            );
-
-            // 2. Separate INV and RINV, map number part
-            const invNumbers = invRows.filter(row =>
-                /^INV-\d+/.test(row['INVOICE NUMBER'])
-            );
-            const rinvNumbersSet = new Set(
-                invRows
-                    .filter(row => /^RINV-\d+/.test(row['INVOICE NUMBER']))
-                    .map(row => row['INVOICE NUMBER'].replace(/^RINV-/, ""))
-            );
-
-            // 3. Exclude INV where matching RINV exists
-            const filteredInvs = invNumbers.filter(row => {
-                const invNumPart = row['INVOICE NUMBER'].replace(/^INV-/, "");
-                return !rinvNumbersSet.has(invNumPart);
-            });
-
-            // 4. For each remaining invoice, insert an expanded row
-            filteredInvs.forEach(inv => {
-                const tr = document.createElement('tr');
-                tr.classList.add('expanded', 'invoice-row');
-                tr.innerHTML = `
-                    <td></td>
-                    <td class="readonly">${itemCode}</td>
-                    <td class="readonly">${inv['INVOICE NUMBER']}</td>
-                    <td class="readonly">${inv['INVOICE DATE'] || inv['DATE'] || ''}</td>
-                    <td><input type="date" class="return-date-input"/></td>
-                    <td class="readonly">${inv['QTY'] || ''}</td>
-                    <td class="readonly">${inv['AMOUNT EXC VAT'] || inv['SELLING PRICE EXCL. VAT'] || inv['SELLING PRICE'] || ''}</td>
-                    <td class="age-cell">0 Months 0 Days</td>
-                    <td class="handling-pct-cell">0%</td>
-                    <td class="handling-charge-cell">R 0.00</td>
-                    <td></td>
-                `;
-                // Save original invoice info for quick lookup
-                tr.dataset.invoiceNumber = inv['INVOICE NUMBER'];
-                tr.dataset.invoiceDate = inv['INVOICE DATE'] || inv['DATE'] || '';
-                tr.dataset.amount = inv['AMOUNT EXC VAT'] || inv['SELLING PRICE EXCL. VAT'] || inv['SELLING PRICE'] || 0;
-                tr.dataset.qty = inv['QTY'] || 1;
-                inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
-            });
-            updateTotals();
-        }
-
-        // Calculate handling for a given invoice row
-        function calculateRowHandling(expandedRow) {
-            const invDateStr = expandedRow.dataset.invoiceDate;
-            const returnDateInput = expandedRow.querySelector('.return-date-input');
-            if (!invDateStr || !returnDateInput.value) {
-                expandedRow.querySelector('.age-cell').textContent = "0 Months 0 Days";
-                expandedRow.querySelector('.handling-pct-cell').textContent = "0%";
-                expandedRow.querySelector('.handling-charge-cell').textContent = "R 0.00";
-                return;
-            }
-            const age = calcMonthsDays(invDateStr, returnDateInput.value);
-            expandedRow.querySelector('.age-cell').textContent = `${age.months} Months ${age.days} Days`;
-
-            // Handling logic:
-            // 0-5 months: 0%
-            // 6-11 months: 12%
-            // 12-23 months: 50%
-            // 24+ months: Not accepted
-            let pct = 0;
-            if (age.months >= 24) pct = -1;
-            else if (age.months >= 12) pct = 50;
-            else if (age.months >= 6) pct = 12;
-            else pct = 0;
-            expandedRow.querySelector('.handling-pct-cell').textContent = (pct < 0) ? "Not accepted" : (pct + "%");
-
-            // Amount
-            const originalValue = parseFloat(expandedRow.dataset.amount || 0);
-            let charge = "R 0.00";
-            if (pct > 0) charge = "R " + (originalValue * pct / 100).toFixed(2);
-            else if (pct === 0) charge = "R 0.00";
-            else if (pct < 0) charge = "-";
-            expandedRow.querySelector('.handling-charge-cell').textContent = charge;
-        }
-
-        // Calculate months and days between dates
-        function calcMonthsDays(start, end) {
-            const d1 = new Date(start);
-            const d2 = new Date(end);
-            let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
-            let days = d2.getDate() - d1.getDate();
-            if (days < 0) {
-                months--;
-                // Days in previous month
-                const prevMonth = new Date(d2.getFullYear(), d2.getMonth(), 0).getDate();
-                days += prevMonth;
-            }
-            if (months < 0) months = 0;
-            if (days < 0) days = 0;
-            return { months, days };
-        }
-
-        // Calculate totals for qty and handling charges
-        function updateTotals() {
-            let totalQty = 0, totalHandling = 0;
-            document.querySelectorAll('tr.expanded').forEach(row => {
-                // Only count rows with a visible input (in DOM)
-                if (row.style.display === "none") return;
-                const qty = parseInt(row.dataset.qty || "0", 10);
-                const charge = row.querySelector('.handling-charge-cell').textContent;
-                if (!isNaN(qty)) totalQty += qty;
-                if (charge && charge.startsWith("R ")) {
-                    const val = parseFloat(charge.replace("R ", ""));
-                    if (!isNaN(val)) totalHandling += val;
-                }
-            });
-            document.getElementById('totalQty').textContent = totalQty;
-            document.getElementById('totalHandlingCharge').textContent = "R " + totalHandling.toFixed(2);
-        }
-
-        // Print the results
-        function printReport() {
-            const printableArea = document.getElementById('printableArea');
-            let html = `<h1>SIMA Eyewear Returns Handling Report</h1>
-                        <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-                        <table border="1" cellpadding="5" cellspacing="0" width="100%">
-                        <tr>
-                            <th>Seq No</th>
-                            <th>Item Code</th>
-                            <th>Invoice Number</th>
-                            <th>Invoice Date</th>
-                            <th>Return Date</th>
-                            <th>Qty</th>
-                            <th>Amount Exc VAT</th>
-                            <th>Age (M D format)</th>
-                            <th>Handling %</th>
-                            <th>Handling Charge</th>
-                        </tr>`;
-            let seq = 1;
-            document.querySelectorAll('tr.expanded').forEach(row => {
-                html += `<tr>
-                    <td>${seq++}</td>
-                    <td>${row.querySelector('td:nth-child(2)').textContent}</td>
-                    <td>${row.querySelector('td:nth-child(3)').textContent}</td>
-                    <td>${row.querySelector('td:nth-child(4)').textContent}</td>
-                    <td>${row.querySelector('.return-date-input')?.value || ""}</td>
-                    <td>${row.querySelector('td:nth-child(6)').textContent}</td>
-                    <td>${row.querySelector('td:nth-child(7)').textContent}</td>
-                    <td>${row.querySelector('.age-cell').textContent}</td>
-                    <td>${row.querySelector('.handling-pct-cell').textContent}</td>
-                    <td>${row.querySelector('.handling-charge-cell').textContent}</td>
-                </tr>`;
-            });
-            // Totals
-            html += `<tr class="totals-row">
-                        <td colspan="5" style="text-align:right;">Totals:</td>
-                        <td>${document.getElementById('totalQty').textContent}</td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
-                        <td>${document.getElementById('totalHandlingCharge').textContent}</td>
-                        <td></td>
+    // Print the results
+    function printReport() {
+        const printableArea = document.getElementById('printableArea');
+        let html = `<h1>SIMA Eyewear Returns Handling Report</h1>
+                    <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                    <table border="1" cellpadding="5" cellspacing="0" width="100%">
+                    <tr>
+                        <th>Seq No</th>
+                        <th>Item Code</th>
+                        <th>Invoice Number</th>
+                        <th>Invoice Date</th>
+                        <th>Return Date</th>
+                        <th>Qty</th>
+                        <th>Amount Exc VAT</th>
+                        <th>Age (M D format)</th>
+                        <th>Handling %</th>
+                        <th>Handling Charge</th>
                     </tr>`;
-            html += `</table>`;
-            printableArea.innerHTML = html;
-            printableArea.style.display = 'block';
-            window.print();
-            printableArea.style.display = 'none';
-            showPostActionButtons();
-        }
+        let seq = 1;
+        document.querySelectorAll('tr.expanded').forEach(row => {
+            html += `<tr>
+                <td>${seq++}</td>
+                <td>${row.querySelector('td:nth-child(2)').textContent}</td>
+                <td>${row.querySelector('td:nth-child(3)').textContent}</td>
+                <td>${row.querySelector('td:nth-child(4)').textContent}</td>
+                <td>${row.querySelector('.return-date-input')?.value || ""}</td>
+                <td>${row.querySelector('.qty-input')?.value || "1"}</td>
+                <td>${row.querySelector('td:nth-child(7)').textContent}</td>
+                <td>${row.querySelector('.age-cell').textContent}</td>
+                <td>${row.querySelector('.handling-pct-cell').textContent}</td>
+                <td>${row.querySelector('.handling-charge-cell').textContent}</td>
+            </tr>`;
+        });
+        // Totals
+        html += `<tr class="totals-row">
+                    <td colspan="5" style="text-align:right;">Totals:</td>
+                    <td>${document.getElementById('totalQty').textContent}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>${document.getElementById('totalHandlingCharge').textContent}</td>
+                </tr>`;
+        html += `</table>`;
+        printableArea.innerHTML = html;
+        printableArea.style.display = 'block';
+        window.print();
+        printableArea.style.display = 'none';
+        showPostActionButtons();
+    }
 
-        // Download as PDF using jsPDF
-        function downloadPDF() {
-            const doc = new window.jspdf.jsPDF({orientation: "landscape"});
-            doc.setFontSize(16);
-            doc.text("SIMA Eyewear Returns Handling Report", 10, 15);
-            doc.setFontSize(10);
-            doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 23);
+    // Download as PDF using jsPDF
+    function downloadPDF() {
+        const doc = new window.jspdf.jsPDF({orientation: "landscape"});
+        doc.setFontSize(16);
+        doc.text("SIMA Eyewear Returns Handling Report", 10, 15);
+        doc.setFontSize(10);
+        doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 23);
 
-            // Table headers
-            const headers = [["Seq No", "Item Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
-            let body = [];
-            let seq = 1;
-            document.querySelectorAll('tr.expanded').forEach(row => {
-                body.push([
-                    seq++,
-                    row.querySelector('td:nth-child(2)').textContent,
-                    row.querySelector('td:nth-child(3)').textContent,
-                    row.querySelector('td:nth-child(4)').textContent,
-                    row.querySelector('.return-date-input')?.value || "",
-                    row.querySelector('td:nth-child(6)').textContent,
-                    row.querySelector('td:nth-child(7)').textContent,
-                    row.querySelector('.age-cell').textContent,
-                    row.querySelector('.handling-pct-cell').textContent,
-                    row.querySelector('.handling-charge-cell').textContent
-                ]);
-            });
-            // Totals
+        // Table headers
+        const headers = [["Seq No", "Item Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
+        let body = [];
+        let seq = 1;
+        document.querySelectorAll('tr.expanded').forEach(row => {
             body.push([
-                "", "", "", "", "Totals:",
-                document.getElementById('totalQty').textContent,
-                "", "", "",
-                document.getElementById('totalHandlingCharge').textContent
+                seq++,
+                row.querySelector('td:nth-child(2)').textContent,
+                row.querySelector('td:nth-child(3)').textContent,
+                row.querySelector('td:nth-child(4)').textContent,
+                row.querySelector('.return-date-input')?.value || "",
+                row.querySelector('.qty-input')?.value || "1",
+                row.querySelector('td:nth-child(7)').textContent,
+                row.querySelector('.age-cell').textContent,
+                row.querySelector('.handling-pct-cell').textContent,
+                row.querySelector('.handling-charge-cell').textContent
             ]);
+        });
+        // Totals
+        body.push([
+            "", "", "", "", "Totals:",
+            document.getElementById('totalQty').textContent,
+            "", "", "",
+            document.getElementById('totalHandlingCharge').textContent
+        ]);
 
-            // Add table using autoTable plugin if available, else fallback to basic
-            if (doc.autoTable) {
-                doc.autoTable({
-                    head: headers,
-                    body: body,
-                    startY: 30
-                });
-            } else {
-                // Fallback: simple table
-                let y = 30;
-                headers[0].forEach((h, idx) => {
-                    doc.text(h, 10 + idx * 35, y);
+        // Add table using autoTable plugin if available, else fallback to basic
+        if (doc.autoTable) {
+            doc.autoTable({
+                head: headers,
+                body: body,
+                startY: 30
+            });
+        } else {
+            // Fallback: simple table
+            let y = 30;
+            headers[0].forEach((h, idx) => {
+                doc.text(h, 10 + idx * 35, y);
+            });
+            y += 6;
+            body.forEach(row => {
+                row.forEach((d, idx) => {
+                    doc.text(String(d), 10 + idx * 35, y);
                 });
                 y += 6;
-                body.forEach(row => {
-                    row.forEach((d, idx) => {
-                        doc.text(String(d), 10 + idx * 35, y);
-                    });
-                    y += 6;
+            });
+        }
+        doc.save("returns_handling_report.pdf");
+        showPostActionButtons();
+    }
+
+    // Show post-action buttons (add another, clear)
+    function showPostActionButtons() {
+        document.getElementById('postActionButtons').classList.remove('hidden');
+    }
+    function hidePostActionButtons() {
+        document.getElementById('postActionButtons').classList.add('hidden');
+    }
+
+    // RESET: everything
+    function resetAll() {
+        renderInputLines(DEFAULT_LINES);
+        document.getElementById('customerSelect').value = "";
+        hidePostActionButtons();
+    }
+
+    // Event Listeners
+    function setupEvents() {
+        // Customer search
+        document.getElementById('customerSearch').addEventListener('input', function () {
+            const searchVal = this.value.trim().toLowerCase();
+            const select = document.getElementById('customerSelect');
+            select.innerHTML = '<option value="">-- Select Customer --</option>';
+            allCustomers
+                .filter(c => c.toLowerCase().includes(searchVal))
+                .forEach(customer => {
+                    const option = document.createElement('option');
+                    option.value = customer;
+                    option.textContent = customer;
+                    select.appendChild(option);
                 });
-            }
-            doc.save("returns_handling_report.pdf");
-            showPostActionButtons();
-        }
-
-        // Show post-action buttons (add another, clear)
-        function showPostActionButtons() {
-            document.getElementById('postActionButtons').classList.remove('hidden');
-        }
-        function hidePostActionButtons() {
-            document.getElementById('postActionButtons').classList.add('hidden');
-        }
-
-        // RESET: everything
-        function resetAll() {
-            renderInputLines(DEFAULT_LINES);
-            document.getElementById('customerSelect').value = "";
-            hidePostActionButtons();
-        }
-
-        // Event Listeners
-        function setupEvents() {
-            // Customer change
-            document.getElementById('customerSelect').addEventListener('change', function () {
-                renderInputLines(DEFAULT_LINES);
-            });
-
-            // Add Line
-            document.getElementById('addLineBtn').addEventListener('click', function () {
-                addInputLine();
-            });
-
-            // Remove Line
-            document.getElementById('returnsTableBody').addEventListener('click', function (e) {
-                if (e.target.classList.contains('remove-line-btn')) {
-                    const row = e.target.closest('tr');
-                    removeInputLine(row);
-                }
-            });
-
-            // Style code entry (detect change/blur/enter)
-            document.getElementById('returnsTableBody').addEventListener('change', function (e) {
-                if (e.target.classList.contains('item-code-input')) {
-                    const inputRow = e.target.closest('tr.input-row');
-                    const code = e.target.value.trim();
-                    const customer = document.getElementById('customerSelect').value;
-                    expandForInvoices(inputRow, code, customer);
-                }
-            });
-
-            // When return date changes in expanded rows, recalculate
-            document.getElementById('returnsTableBody').addEventListener('change', function (e) {
-                if (e.target.classList.contains('return-date-input')) {
-                    const expandedRow = e.target.closest('tr.expanded');
-                    calculateRowHandling(expandedRow);
-                    updateTotals();
-                }
-            });
-
-            // Calculate all
-            document.getElementById('calculateBtn').addEventListener('click', function () {
-                // For all expanded rows, recalc (in case user hasn't tabbed out)
-                document.querySelectorAll('tr.expanded').forEach(calculateRowHandling);
-                updateTotals();
-            });
-
-            // Print
-            document.getElementById('printBtn').addEventListener('click', printReport);
-
-            // Download PDF
-            document.getElementById('downloadBtn').addEventListener('click', downloadPDF);
-
-            // Reset
-            document.getElementById('resetBtn').addEventListener('click', resetAll);
-            document.getElementById('resetBtn2').addEventListener('click', resetAll);
-
-            // Add another return (just clears form)
-            document.getElementById('addReturnBtn').addEventListener('click', function(){
-                resetAll();
-            });
-        }
-
-        // On page load: fetch and prep
-        document.addEventListener('DOMContentLoaded', function () {
-            renderInputLines(DEFAULT_LINES);
-            setupEvents();
-            Papa.parse(SALES_CSV_URL, {
-                download: true,
-                header: true,
-                skipEmptyLines: true,
-                complete: function (results) {
-                    const normalized = results.data.map(normalizeRow).filter(row => !!row['INVOICE NUMBER'] && !!row['ITEM CODE']);
-                    salesData = normalized;
-                    updateDataStatus(true);
-                    populateCustomerDropdown();
-                    document.getElementById('calculatorSection').style.display = '';
-                },
-                error: function (error) {
-                    updateDataStatus(false);
-                }
-            });
         });
+
+        // Customer change
+        document.getElementById('customerSelect').addEventListener('change', function () {
+            renderInputLines(DEFAULT_LINES);
+        });
+
+        // Add Line
+        document.getElementById('addLineBtn').addEventListener('click', function () {
+            addInputLine();
+        });
+
+        // Remove Line
+        document.getElementById('returnsTableBody').addEventListener('click', function (e) {
+            if (e.target.classList.contains('remove-line-btn')) {
+                const row = e.target.closest('tr');
+                removeInputLine(row);
+            }
+            if (e.target.classList.contains('remove-invoice-btn')) {
+                const row = e.target.closest('tr.expanded');
+                row.parentNode.removeChild(row);
+                updateTotals();
+            }
+        });
+
+        // Style code entry (detect change/blur/enter)
+        document.getElementById('returnsTableBody').addEventListener('change', function (e) {
+            if (e.target.classList.contains('item-code-input')) {
+                const inputRow = e.target.closest('tr.input-row');
+                const code = e.target.value.trim();
+                const customer = document.getElementById('customerSelect').value;
+                expandForInvoices(inputRow, code, customer);
+            }
+        });
+
+        // When return date or qty changes in expanded rows, recalculate
+        document.getElementById('returnsTableBody').addEventListener('input', function (e) {
+            if (e.target.classList.contains('return-date-input') ||
+                e.target.classList.contains('qty-input')) {
+                const expandedRow = e.target.closest('tr.expanded');
+                if (e.target.classList.contains('qty-input')) {
+                    // Clamp value between min and max
+                    const min = parseInt(e.target.min) || 1;
+                    const max = parseInt(e.target.max) || 1;
+                    let val = parseInt(e.target.value) || min;
+                    if (val < min) val = min;
+                    if (val > max) val = max;
+                    e.target.value = val;
+                }
+                calculateRowHandling(expandedRow);
+                updateTotals();
+            }
+        });
+
+        // Calculate all
+        document.getElementById('calculateBtn').addEventListener('click', function () {
+            document.querySelectorAll('tr.expanded').forEach(calculateRowHandling);
+            updateTotals();
+        });
+
+        // Print
+        document.getElementById('printBtn').addEventListener('click', printReport);
+
+        // Download PDF
+        document.getElementById('downloadBtn').addEventListener('click', downloadPDF);
+
+        // Reset
+        document.getElementById('resetBtn').addEventListener('click', resetAll);
+        document.getElementById('resetBtn2').addEventListener('click', resetAll);
+
+        // Add another return (just clears form)
+        document.getElementById('addReturnBtn').addEventListener('click', function(){
+            resetAll();
+        });
+    }
+
+    // On page load: fetch and prep
+    document.addEventListener('DOMContentLoaded', function () {
+        renderInputLines(DEFAULT_LINES);
+        setupEvents();
+        Papa.parse(SALES_CSV_URL, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function (results) {
+                const normalized = results.data.filter(row =>
+                    !!row['INVOICE NUMBER'] && !!getCustomerField(row) && !!getItemCodeField(row)
+                );
+                salesData = normalized;
+                updateDataStatus(salesData.length > 0);
+                populateCustomerDropdown();
+                document.getElementById('calculatorSection').style.display = '';
+            },
+            error: function (error) {
+                updateDataStatus(false);
+            }
+        });
+    });
     </script>
 </body>
 </html>

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMA Eyewear Returns Handling</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .section {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f4fc;
+            border-radius: 4px;
+            display: none;
+        }
+        .file-input-container {
+            position: relative;
+            margin: 20px 0;
+        }
+        .file-input-label {
+            display: block;
+            padding: 10px 15px;
+            background: #3498db;
+            color: white;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+        }
+        #fileInput {
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .invoice-details {
+            margin-top: 15px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <h1>SIMA Eyewear Returns Handling Calculator</h1>
+    
+    <div class="section">
+        <h2>1. Upload Sales Report</h2>
+        <div class="file-input-container">
+            <label class="file-input-label" for="fileInput">Choose CSV File</label>
+            <input type="file" id="fileInput" accept=".csv">
+        </div>
+        <div id="fileInfo"></div>
+    </div>
+    
+    <div class="section" id="calculatorSection" style="display: none;">
+        <h2>2. Calculate Handling Charge</h2>
+        
+        <label for="customerSelect">Customer:</label>
+        <select id="customerSelect" disabled>
+            <option value="">-- Select after uploading --</option>
+        </select>
+        
+        <label for="itemCodeInput">Item Code:</label>
+        <input type="text" id="itemCodeInput" placeholder="Enter item code">
+        
+        <label for="returnDateInput">Return Date:</label>
+        <input type="date" id="returnDateInput">
+        
+        <label for="invoiceSelect">Invoice:</label>
+        <select id="invoiceSelect" disabled>
+            <option value="">-- Select customer and item first --</option>
+        </select>
+        
+        <button id="calculateBtn">Calculate Handling Charge</button>
+        
+        <div id="results">
+            <h3>Handling Charge Result</h3>
+            <div id="resultDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let salesData = [];
+        let currentFileName = '';
+        
+        // Initialize date to today
+        document.getElementById('returnDateInput').valueAsDate = new Date();
+        
+        // File upload handling
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                currentFileName = file.name;
+                document.getElementById('fileInfo').innerHTML = `Loaded: <strong>${file.name}</strong>`;
+                
+                Papa.parse(file, {
+                    header: true,
+                    complete: function(results) {
+                        salesData = results.data;
+                        populateCustomerDropdown();
+                        document.getElementById('calculatorSection').style.display = 'block';
+                    },
+                    error: function(error) {
+                        alert('Error parsing file: ' + error.message);
+                    }
+                });
+            }
+        });
+        
+        // Populate customer dropdown
+        function populateCustomerDropdown() {
+            const customerSelect = document.getElementById('customerSelect');
+            customerSelect.innerHTML = '<option value="">Select Customer</option>';
+            
+            // Get unique customers
+            const customers = [...new Set(salesData.map(row => row.Customer))];
+            
+            customers.forEach(customer => {
+                const option = document.createElement('option');
+                option.value = customer;
+                option.textContent = customer;
+                customerSelect.appendChild(option);
+            });
+            
+            customerSelect.disabled = false;
+        }
+        
+        // When customer or item changes, update invoice dropdown
+        document.getElementById('customerSelect').addEventListener('change', updateInvoiceDropdown);
+        document.getElementById('itemCodeInput').addEventListener('input', updateInvoiceDropdown);
+        
+        function updateInvoiceDropdown() {
+            const customer = document.getElementById('customerSelect').value;
+            const itemCode = document.getElementById('itemCodeInput').value;
+            const invoiceSelect = document.getElementById('invoiceSelect');
+            
+            invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';
+            invoiceSelect.disabled = true;
+            
+            if (customer && itemCode) {
+                const matchingInvoices = salesData.filter(row => 
+                    row.Customer === customer && 
+                    row['Item Code'] === itemCode
+                );
+                
+                if (matchingInvoices.length > 0) {
+                    invoiceSelect.disabled = false;
+                    matchingInvoices.forEach(invoice => {
+                        const option = document.createElement('option');
+                        option.value = invoice['Invoice Number'];
+                        option.textContent = `${invoice['Invoice Number']} - ${invoice['Invoice Date']} ($${invoice.Amount})`;
+                        invoiceSelect.appendChild(option);
+                    });
+                }
+            }
+        }
+        
+        // Calculate handling charge
+        document.getElementById('calculateBtn').addEventListener('click', calculateCharge);
+        
+        function calculateCharge() {
+            const invoiceSelect = document.getElementById('invoiceSelect');
+            const returnDate = new Date(document.getElementById('returnDateInput').value);
+            const resultsDiv = document.getElementById('results');
+            const resultDetails = document.getElementById('resultDetails');
+            
+            if (!invoiceSelect.value) {
+                alert('Please select an invoice');
+                return;
+            }
+            
+            const selectedInvoice = salesData.find(row => 
+                row['Invoice Number'] === invoiceSelect.value
+            );
+            
+            const invoiceDate = new Date(selectedInvoice['Invoice Date']);
+            const monthsDiff = (returnDate.getFullYear() - invoiceDate.getFullYear()) * 12 + 
+                             (returnDate.getMonth() - invoiceDate.getMonth());
+            
+            let charge = "Not accepted";
+            if (monthsDiff < 24) {
+                if (monthsDiff >= 12) charge = "50%";
+                else if (monthsDiff >= 6) charge = "12%";
+                else charge = "0%";
+            }
+            
+            // Display results
+            resultDetails.innerHTML = `
+                <p><strong>Customer:</strong> ${selectedInvoice.Customer}</p>
+                <p><strong>Item Code:</strong> ${selectedInvoice['Item Code']}</p>
+                <p><strong>Original Invoice Date:</strong> ${selectedInvoice['Invoice Date']}</p>
+                <p><strong>Return Date:</strong> ${returnDate.toISOString().split('T')[0]}</p>
+                <p><strong>Time Since Purchase:</strong> ${monthsDiff} months</p>
+                <p class="highlight">Handling Charge: ${charge}</p>
+            `;
+            
+            resultsDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

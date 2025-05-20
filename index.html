@@ -109,23 +109,23 @@
     const SALES_CSV_URL = "https://media.githubusercontent.com/media/mnoornawab/sima-returns-handling/refs/heads/main/sales-reports/sales-report-latest.csv";
     let salesData = [];
     let allCustomers = [];
+    let headerMap = {};
     const DEFAULT_LINES = 15;
 
-    // Utility: get "customer" and "item code" from your actual CSV headers
-    function getCustomerField(row) {
-        return row['CUSTOMER'] || "";
+    // Utility: robust column mapping
+    function mapHeaders(row) {
+        // Build headerMap ONCE using the first row's keys
+        if (Object.keys(headerMap).length === 0) {
+            for (const key in row) {
+                const norm = key.trim().toUpperCase();
+                headerMap[norm] = key;
+            }
+        }
     }
-    function getItemCodeField(row) {
-        return row['ITEMCODE'] || "";
-    }
-    function getInvoiceDateField(row) {
-        return row['Date'] || "";
-    }
-    function getAmountField(row) {
-        return row['SELLING PRICE EXCL. VAT'] || "";
-    }
-    function getQtyField(row) {
-        return row['QTY'] || "";
+    function getVal(row, wanted) {
+        // wanted example: "CUSTOMER", "ITEMCODE"
+        const norm = wanted.trim().toUpperCase();
+        return row[headerMap[norm]] ? row[headerMap[norm]].trim() : "";
     }
 
     function updateDataStatus(hasData) {
@@ -141,7 +141,7 @@
 
     function populateCustomerDropdown() {
         const select = document.getElementById('customerSelect');
-        allCustomers = [...new Set(salesData.map(getCustomerField))]
+        allCustomers = [...new Set(salesData.map(row => getVal(row, "CUSTOMER")))]
             .filter(Boolean)
             .sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
         select.innerHTML = '<option value="">-- Select Customer --</option>';
@@ -232,43 +232,42 @@
             updateTotals();
             return;
         }
-
         // Find all INV and RINV for this customer & item code
         const invRows = salesData.filter(row =>
-            getCustomerField(row) === customer && getItemCodeField(row) === itemCode
+            getVal(row, "CUSTOMER") === customer && getVal(row, "ITEMCODE") === itemCode
         );
         const invNumbers = invRows.filter(row =>
-            /^INV-\d+/.test(row['INVOICE NUMBER'])
+            /^INV-\d+/.test(getVal(row, "INVOICE NUMBER"))
         );
         const rinvNumbersSet = new Set(
             invRows
-                .filter(row => /^RINV-\d+/.test(row['INVOICE NUMBER']))
-                .map(row => row['INVOICE NUMBER'].replace(/^RINV-/, ""))
+                .filter(row => /^RINV-\d+/.test(getVal(row, "INVOICE NUMBER")))
+                .map(row => getVal(row, "INVOICE NUMBER").replace(/^RINV-/, ""))
         );
         const filteredInvs = invNumbers.filter(row => {
-            const invNumPart = row['INVOICE NUMBER'].replace(/^INV-/, "");
+            const invNumPart = getVal(row, "INVOICE NUMBER").replace(/^INV-/, "");
             return !rinvNumbersSet.has(invNumPart);
         });
         filteredInvs.forEach(inv => {
-            const maxQty = parseInt(getQtyField(inv)) || 1;
+            const maxQty = parseInt(getVal(inv, "QTY")) || 1;
             const tr = document.createElement('tr');
             tr.classList.add('expanded', 'invoice-row');
             tr.innerHTML = `
                 <td></td>
                 <td class="readonly">${itemCode}</td>
-                <td class="readonly">${inv['INVOICE NUMBER']}</td>
-                <td class="readonly">${getInvoiceDateField(inv)}</td>
+                <td class="readonly">${getVal(inv, "INVOICE NUMBER")}</td>
+                <td class="readonly">${getVal(inv, "Date")}</td>
                 <td><input type="date" class="return-date-input"/></td>
                 <td><input type="number" class="qty-input" min="1" max="${maxQty}" value="1" style="width:60px;"/></td>
-                <td class="readonly">${getAmountField(inv) || ''}</td>
+                <td class="readonly">${getVal(inv, "SELLING PRICE EXCL. VAT") || ''}</td>
                 <td class="age-cell">0 Months 0 Days</td>
                 <td class="handling-pct-cell">0%</td>
                 <td class="handling-charge-cell">R 0.00</td>
                 <td><button type="button" class="remove-invoice-btn danger" title="Remove this line">×</button></td>
             `;
-            tr.dataset.invoiceNumber = inv['INVOICE NUMBER'];
-            tr.dataset.invoiceDate = getInvoiceDateField(inv);
-            tr.dataset.amount = getAmountField(inv) || 0;
+            tr.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
+            tr.dataset.invoiceDate = getVal(inv, "Date");
+            tr.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
             tr.dataset.maxqty = maxQty;
             inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
         });
@@ -313,7 +312,7 @@
 
     // Calculate months and days between dates
     function calcMonthsDays(start, end) {
-        const d1 = new Date(start);
+        const d1 = new Date(start.split("/").reverse().join("-")); // d/m/y -> y-m-d
         const d2 = new Date(end);
         let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
         let days = d2.getDate() - d1.getDate();
@@ -569,8 +568,9 @@
             header: true,
             skipEmptyLines: true,
             complete: function (results) {
+                if (results.data.length > 0) mapHeaders(results.data[0]);
                 const normalized = results.data.filter(row =>
-                    !!row['INVOICE NUMBER'] && !!getCustomerField(row) && !!getItemCodeField(row)
+                    !!getVal(row, "INVOICE NUMBER") && !!getVal(row, "CUSTOMER") && !!getVal(row, "ITEMCODE")
                 );
                 salesData = normalized;
                 updateDataStatus(salesData.length > 0);

@@ -5,745 +5,551 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SIMA Eyewear Returns Handling</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            color: #333;
-        }
-        h1 {
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-        }
-        .section {
-            background: #f9f9f9;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        label {
-            display: block;
-            margin: 10px 0 5px;
-            font-weight: bold;
-        }
-        input, select, button {
-            padding: 8px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 16px;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            cursor: pointer;
-            margin-top: 15px;
-            transition: background-color 0.3s;
-            padding: 10px 15px;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        button.secondary {
-            background-color: #6c757d;
-        }
-        button.danger {
-            background-color: #dc3545;
-        }
-        button.success {
-            background-color: #28a745;
-        }
-        #dataStatus {
-            margin: 15px 0;
-            padding: 10px;
-            border-radius: 4px;
-        }
-        .data-loaded {
-            background-color: #d4edda;
-            color: #155724;
-        }
-        .data-empty {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        .file-input-container {
-            position: relative;
-            margin: 20px 0;
-        }
-        .file-input-label {
-            display: block;
-            padding: 10px 15px;
-            background: #3498db;
-            color: white;
-            border-radius: 4px;
-            text-align: center;
-            cursor: pointer;
-        }
-        #fileInput {
-            position: absolute;
-            left: 0;
-            top: 0;
-            opacity: 0;
-            width: 100%;
-            height: 100%;
-            cursor: pointer;
-        }
-        .highlight {
-            font-weight: bold;
-            color: #e74c3c;
-            font-size: 1.1em;
-        }
-        .two-columns {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        .action-buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        #uploadProgress {
-            margin:10px 0;
-            display:none;
-        }
-        #progressBar {
-            width:200px;
-            display:none;
-            vertical-align: middle;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; color: #333; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .section { background: #f9f9f9; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);}
+        label { display: block; margin: 10px 0 5px; font-weight: bold; }
+        input, select, button { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
+        button { background-color: #3498db; color: white; border: none; cursor: pointer; margin-top: 15px; transition: background-color 0.3s; padding: 10px 15px;}
+        button:hover { background-color: #2980b9; }
+        button.secondary { background-color: #6c757d; }
+        button.danger { background-color: #dc3545; }
+        button.success { background-color: #28a745; }
+        #dataStatus { margin: 15px 0; padding: 10px; border-radius: 4px; }
+        .data-loaded { background-color: #d4edda; color: #155724; }
+        .data-empty { background-color: #f8d7da; color: #721c24; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0;}
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #e5e5e5; }
+        tr.invoice-row { background: #f7fafd; }
+        tr.expanded { background: #f0f4ff; }
+        .highlight { font-weight: bold; color: #e74c3c; font-size: 1.1em; }
+        .two-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .action-buttons { display: flex; gap: 10px; margin-top: 20px; }
+        .no-print { display: none; }
+        .readonly { background: #eee; }
+        .totals-row { font-weight: bold; background: #d3e8fc; }
+        .hidden { display: none !important; }
         @media print {
-            body * {
-                visibility: hidden;
-            }
-            #printableArea, #printableArea * {
-                visibility: visible;
-            }
-            #printableArea {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
-            .no-print {
-                display: none;
-            }
+            .no-print { display: none !important; }
+            #printableArea, #printableArea * { visibility: visible; }
+            #printableArea { position: absolute; left: 0; top: 0; width: 100%; background: #fff; z-index: 9999;}
         }
         @media (max-width: 768px) {
-            .two-columns {
-                grid-template-columns: 1fr;
-            }
+            .two-columns { grid-template-columns: 1fr; }
+            table, th, td { font-size: 12px; }
         }
     </style>
 </head>
 <body>
     <h1>SIMA Eyewear Returns Handling Calculator</h1>
-    
     <div class="section">
         <h2>Sales Report Data</h2>
         <div id="dataStatus" class="data-empty">
-            No sales report data loaded. Please upload your monthly sales report.
-        </div>
-
-        <div id="uploadSection">
-            <div class="file-input-container">
-                <label id="fileInputLabel" class="file-input-label" for="fileInput">Upload Monthly Sales Report (CSV)</label>
-                <input type="file" id="fileInput" accept=".csv">
-            </div>
-            <div id="uploadProgress">
-                <span id="progressMessage">Uploading...</span>
-                <progress id="progressBar" value="0" max="100"></progress>
-            </div>
-            <div class="two-columns" id="updateOptions">
-                <div>
-                    <label>
-                        <input type="radio" name="updateMethod" value="replace" checked> 
-                        Replace existing data (start fresh)
-                    </label>
-                </div>
-                <div>
-                    <label>
-                        <input type="radio" name="updateMethod" value="append"> 
-                        Append to existing data (monthly update)
-                    </label>
-                </div>
-            </div>
-            <button id="clearDataBtn" class="danger">Clear All Sales Data</button>
-        </div>
-        <div id="uploadOnlyFirstMsg" style="display:none; color:#721c24; background:#f8d7da; padding:10px; border-radius:4px; margin-top:10px;">
-            Sales report can only be updated on the 1st of each month. Please return on the 1st to update.
+            Loading sales report data from GitHub...
         </div>
     </div>
-    
+
     <div class="section" id="calculatorSection" style="display: none;">
-        <h2>Return Items</h2>
-        
-        <table id="returnsTable">
-            <thead>
-                <tr>
-                    <th>Customer</th>
-                    <th>Item Code</th>
-                    <th>Invoice Number</th>
-                    <th>Return Date</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>
-                        <select class="customer-select">
-                            <option value="">Select Customer</option>
-                        </select>
-                    </td>
-                    <td><input type="text" class="item-code" placeholder="Item Code"></td>
-                    <td>
-                        <select class="invoice-select" disabled>
-                            <option value="">Select Customer & Item</option>
-                        </select>
-                    </td>
-                    <td><input type="date" class="return-date"></td>
-                    <td><button class="add-row-btn success">+ Add</button></td>
-                </tr>
-            </tbody>
-        </table>
-        
+        <label for="customerSelect">Select Customer:</label>
+        <select id="customerSelect">
+            <option value="">-- Select Customer --</option>
+        </select>
+
+        <div style="margin-top:20px;">
+            <table id="returnsTable">
+                <thead>
+                    <tr>
+                        <th>Seq No</th>
+                        <th>Item Code</th>
+                        <th>Invoice Number</th>
+                        <th>Invoice Date</th>
+                        <th>Return Date</th>
+                        <th>Qty</th>
+                        <th>Amount Exc VAT</th>
+                        <th>Age (M D format)</th>
+                        <th>Handling %</th>
+                        <th>Handling Charge</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="returnsTableBody">
+                    <!-- Rows injected here -->
+                </tbody>
+                <tfoot>
+                    <tr class="totals-row">
+                        <td colspan="5" style="text-align:right;">Totals:</td>
+                        <td id="totalQty">0</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td id="totalHandlingCharge">R 0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+            <button id="addLineBtn" type="button" class="success">+ Add Line</button>
+        </div>
         <div class="action-buttons no-print">
             <button id="calculateBtn">Calculate Handling Charges</button>
+            <button id="printBtn" class="secondary">Print Report</button>
+            <button id="downloadBtn" class="secondary">Download as PDF</button>
+            <button id="resetBtn" class="danger">Clear Form</button>
         </div>
-        
-        <div id="results" style="display: none;">
-            <h2>Handling Charges Summary</h2>
-            <div id="summaryResults"></div>
-            
-            <div class="action-buttons no-print">
-                <button id="printBtn" class="secondary">Print Report</button>
-                <button id="resetBtn" class="danger">Start New Return</button>
-            </div>
+        <div id="postActionButtons" class="action-buttons no-print hidden">
+            <button id="addReturnBtn" class="success">Add Another Return</button>
+            <button id="resetBtn2" class="danger">Clear Form</button>
         </div>
-        
         <div id="printableArea" style="display: none;"></div>
     </div>
 
     <script>
-        // Constants for localStorage
-        const SALES_DATA_KEY = 'sima_sales_data';
-        const LAST_UPLOAD_KEY = 'sima_last_upload';
-
-        // Global variable for in-memory sales data
+        // CSV file URL (updated!)
+        const SALES_CSV_URL = "https://media.githubusercontent.com/media/mnoornawab/sima-returns-handling/refs/heads/main/sales-reports/sales-report-latest.csv";
         let salesData = [];
+        const DEFAULT_LINES = 15;
 
-        // Utility: Normalize all row keys to uppercase and trim values
+        // Normalize row
         function normalizeRow(row) {
-            const normalized = {};
+            const norm = {};
             for (const key in row) {
-                normalized[key.trim().toUpperCase()] = (row[key] || '').trim();
+                norm[key.trim().toUpperCase()] = (row[key] || '').trim();
             }
-            return normalized;
+            return norm;
         }
 
-        // Construct a unique key for each sales record (invoice + item code)
-        function getSalesKey(row) {
-            return (row['INVOICE NUMBER'] || row['INVOICE'] || row['INVNO'] || '') + '|' +
-                   (row['ITEM CODE'] || row['ITEMCODE'] || row['SKU'] || '');
-        }
-
-        // Load sales data from localStorage
-        function loadSalesData() {
-            const saved = localStorage.getItem(SALES_DATA_KEY);
-            if (!saved) return [];
-            try { return JSON.parse(saved); } catch { return []; }
-        }
-
-        // Save sales data to localStorage
-        function saveSalesData(data) {
-            localStorage.setItem(SALES_DATA_KEY, JSON.stringify(data));
-            localStorage.setItem(LAST_UPLOAD_KEY, new Date().toLocaleDateString());
-        }
-
-        // Append new monthly data, skipping duplicates (by invoice + item code)
-        function appendMonthlyData(newRows) {
-            let oldData = loadSalesData();
-            const oldKeys = new Set(oldData.map(getSalesKey));
-            let duplicates = 0;
-            const toAdd = [];
-            for (const row of newRows) {
-                const key = getSalesKey(row);
-                if (!oldKeys.has(key)) {
-                    toAdd.push(row);
-                } else {
-                    duplicates++;
-                }
-            }
-            const updated = [...oldData, ...toAdd];
-            saveSalesData(updated);
-            salesData = updated;
-            return { added: toAdd.length, duplicates };
-        }
-
-        // Replace all data
-        function replaceAllData(newRows) {
-            saveSalesData(newRows);
-            salesData = newRows;
-            return { added: newRows.length, duplicates: 0 };
-        }
-
-        // Show status messages
-        function showStatus(msg, success) {
-            const el = document.getElementById('dataStatus');
-            el.textContent = msg;
-            el.className = success ? 'data-loaded' : 'data-empty';
-        }
-
-        // Update the UI's data status
         function updateDataStatus(hasData) {
             const statusElement = document.getElementById('dataStatus');
             if (hasData) {
-                const lastUpload = localStorage.getItem(LAST_UPLOAD_KEY) || 'previously';
-                statusElement.textContent = `Sales data loaded (${lastUpload}). ${salesData.length} records available.`;
+                statusElement.textContent = `Sales data loaded from GitHub. ${salesData.length} records available.`;
                 statusElement.className = 'data-loaded';
             } else {
-                statusElement.textContent = 'No sales report data loaded. Please upload your monthly sales report.';
+                statusElement.textContent = 'No sales report data loaded. Please check the CSV file in the repo.';
                 statusElement.className = 'data-empty';
             }
         }
 
-        // Main upload handler
-        function handleFileUpload(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-            document.getElementById('uploadProgress').style.display = 'block';
-            document.getElementById('progressMessage').textContent = 'Uploading and processing file...';
-            document.getElementById('progressBar').style.display = 'none';
-
-            const updateMethod = document.querySelector('input[name="updateMethod"]:checked').value;
-            Papa.parse(file, {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    if (!results.data.length) {
-                        showStatus('The uploaded file is empty or invalid.', false);
-                        document.getElementById('progressMessage').textContent = 'Upload failed: Empty or invalid file.';
-                        return;
-                    }
-                    const normalized = results.data.map(normalizeRow).filter(row => !!row['INVOICE NUMBER'] && !!row['ITEM CODE']);
-                    if (!normalized.length) {
-                        showStatus('No valid rows found (missing Invoice Number or Item Code).', false);
-                        document.getElementById('progressMessage').textContent = 'Upload failed: No valid rows found.';
-                        return;
-                    }
-                    let result;
-                    if (updateMethod === 'replace') {
-                        result = replaceAllData(normalized);
-                    } else {
-                        result = appendMonthlyData(normalized);
-                    }
-                    updateDataStatus(true);
-                    populateCustomerDropdowns();
-                    document.getElementById('calculatorSection').style.display = 'block';
-                    showStatus(`Upload complete. Added: ${result.added}, Duplicates skipped: ${result.duplicates}`, true);
-                    document.getElementById('progressMessage').textContent = `Upload complete! ${result.added} added, ${result.duplicates} duplicates skipped.`;
-                    e.target.value = '';
-                },
-                error: function(error) {
-                    showStatus('Error parsing file: ' + error.message, false);
-                    document.getElementById('progressMessage').textContent = 'Upload failed: Error parsing file.';
-                }
+        function populateCustomerDropdown() {
+            const select = document.getElementById('customerSelect');
+            const customers = [...new Set(salesData.map(row => row['CUSTOMER'] || row['CUSTOMER NAME'] || row['CLIENT']))]
+                .filter(Boolean)
+                .sort();
+            select.innerHTML = '<option value="">-- Select Customer --</option>';
+            customers.forEach(customer => {
+                const option = document.createElement('option');
+                option.value = customer;
+                option.textContent = customer;
+                select.appendChild(option);
             });
         }
 
-        // Populate all customer dropdowns in the return table
-        function populateCustomerDropdowns() {
-            const customerSelects = document.querySelectorAll('.customer-select');
-            // Get unique customers
-            const customers = [...new Set(salesData.map(row => row['CUSTOMER'] || row['CUSTOMER NAME'] || row['CLIENT']))].filter(Boolean).sort();
-            customerSelects.forEach(select => {
-                // Save current selection
-                const currentValue = select.value;
-                // Rebuild options
-                select.innerHTML = '<option value="">Select Customer</option>';
-                customers.forEach(customer => {
-                    const option = document.createElement('option');
-                    option.value = customer;
-                    option.textContent = customer;
-                    select.appendChild(option);
-                });
-                // Restore selection if possible
-                if (currentValue && customers.includes(currentValue)) {
-                    select.value = currentValue;
-                }
-            });
-        }
-
-        // Update invoice dropdown when customer or item code changes
-        function updateInvoiceDropdown(sourceElement) {
-            const row = sourceElement.closest('tr');
-            const customerSelect = row.querySelector('.customer-select');
-            const itemCodeInput = row.querySelector('.item-code');
-            const invoiceSelect = row.querySelector('.invoice-select');
-
-            invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';
-            invoiceSelect.disabled = true;
-
-            const customer = customerSelect.value;
-            const itemCode = itemCodeInput.value;
-
-            if (customer && itemCode) {
-                const matchingInvoices = salesData.filter(row => {
-                    const rowCustomer = row['CUSTOMER'] || row['CUSTOMER NAME'] || row['CLIENT'];
-                    const rowItemCode = row['ITEM CODE'] || row['ITEMCODE'] || row['SKU'];
-                    return rowCustomer === customer && rowItemCode === itemCode;
-                });
-                if (matchingInvoices.length > 0) {
-                    invoiceSelect.disabled = false;
-                    matchingInvoices.forEach(invoice => {
-                        const option = document.createElement('option');
-                        const invNumber = invoice['INVOICE NUMBER'] || invoice['INVOICE'] || invoice['INVNO'];
-                        const invDate = invoice['DATE'] || invoice['INVOICE DATE'] || invoice['TRANSACTIONDATE'];
-                        option.value = invNumber;
-                        option.textContent = `${invNumber} - ${invDate}`;
-                        option.dataset.invoiceDate = invDate;
-                        invoiceSelect.appendChild(option);
-                    });
-                }
+        // Generate empty input rows for style code entry
+        function renderInputLines(lines = DEFAULT_LINES) {
+            const tbody = document.getElementById('returnsTableBody');
+            tbody.innerHTML = "";
+            for (let i = 0; i < lines; i++) {
+                const tr = document.createElement('tr');
+                tr.classList.add('input-row');
+                tr.innerHTML = `
+                    <td class="seq-no">${i + 1}</td>
+                    <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
+                    <td colspan="8"></td>
+                    <td><button type="button" class="remove-line-btn danger" style="display:none;">×</button></td>
+                `;
+                tbody.appendChild(tr);
             }
+            updateTotals();
         }
 
-        // Add a new row to the returns table
-        function addNewRow() {
-            const tbody = document.querySelector('#returnsTable tbody');
-            const newRow = document.createElement('tr');
-            newRow.innerHTML = `
-                <td>
-                    <select class="customer-select">
-                        <option value="">Select Customer</option>
-                    </select>
-                </td>
-                <td><input type="text" class="item-code" placeholder="Item Code"></td>
-                <td>
-                    <select class="invoice-select" disabled>
-                        <option value="">Select Customer & Item</option>
-                    </select>
-                </td>
-                <td><input type="date" class="return-date" value="${new Date().toISOString().split('T')[0]}"></td>
-                <td><button class="remove-row-btn danger">× Remove</button></td>
+        // Add a new empty input line at the end
+        function addInputLine() {
+            const tbody = document.getElementById('returnsTableBody');
+            const idx = tbody.querySelectorAll('tr.input-row').length + 1;
+            const tr = document.createElement('tr');
+            tr.classList.add('input-row');
+            tr.innerHTML = `
+                <td class="seq-no">${idx}</td>
+                <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
+                <td colspan="8"></td>
+                <td><button type="button" class="remove-line-btn danger">×</button></td>
             `;
-            tbody.appendChild(newRow);
-            populateCustomerDropdowns();
-            newRow.querySelector('.return-date').valueAsDate = new Date();
+            tbody.appendChild(tr);
+            updateRemoveButtons();
+            updateTotals();
         }
 
-        // Calculate all handling charges
-        function calculateAllCharges() {
-            const rows = document.querySelectorAll('#returnsTable tbody tr');
-            const returnItems = [];
-            // Validate all rows first
-            for (const row of rows) {
-                const customerSelect = row.querySelector('.customer-select');
-                const itemCode = row.querySelector('.item-code').value;
-                const invoiceSelect = row.querySelector('.invoice-select');
-                const returnDate = row.querySelector('.return-date').value;
-                if (!customerSelect.value || !itemCode || !invoiceSelect.value || !returnDate) {
-                    alert('Please complete all fields in all rows before calculating');
-                    return;
-                }
-                const invoiceNumber = invoiceSelect.value;
-                const invoiceDate = invoiceSelect.options[invoiceSelect.selectedIndex].dataset.invoiceDate;
-                // Find the original invoice data
-                const originalInvoice = salesData.find(row => {
-                    const invNumber = row['INVOICE NUMBER'] || row['INVOICE'] || row['INVNO'];
-                    return invNumber === invoiceNumber;
-                });
-                if (!originalInvoice) {
-                    alert(`Could not find original invoice data for ${invoiceNumber}`);
-                    return;
-                }
-                returnItems.push({
-                    customer: customerSelect.value,
-                    itemCode: itemCode,
-                    invoiceNumber: invoiceNumber,
-                    invoiceDate: invoiceDate,
-                    returnDate: returnDate,
-                    brand: originalInvoice['BRAND'] || 'N/A',
-                    style: originalInvoice['STYLE'] || 'N/A',
-                    quantity: originalInvoice['QTY'] || 1,
-                    sellingPrice: originalInvoice['SELLING PRICE INCL. VAT'] || 
-                                 originalInvoice['SELLING PRICE'] || 
-                                 originalInvoice['AMOUNT'] || 0
-                });
+        function updateRemoveButtons() {
+            // Show remove button only if more than DEFAULT_LINES
+            const rows = document.querySelectorAll('tr.input-row');
+            rows.forEach((row, i) => {
+                const btn = row.querySelector('.remove-line-btn');
+                if (rows.length > DEFAULT_LINES) btn.style.display = '';
+                else btn.style.display = 'none';
+            });
+        }
+
+        // Remove a line (input row)
+        function removeInputLine(row) {
+            // Also remove expanded rows after this input row
+            let next = row.nextElementSibling;
+            while (next && next.classList.contains('expanded')) {
+                const toRemove = next;
+                next = next.nextElementSibling;
+                toRemove.remove();
             }
-            if (returnItems.length === 0) {
-                alert('No valid return items to calculate');
+            row.parentNode.removeChild(row);
+            updateSeqNos();
+            updateRemoveButtons();
+            updateTotals();
+        }
+
+        // Update sequence numbers after row removal
+        function updateSeqNos() {
+            document.querySelectorAll('tr.input-row').forEach((row, i) => {
+                row.querySelector('.seq-no').textContent = i + 1;
+            });
+        }
+
+        // When a style code is entered, expand to show lines for each matching invoice (excluding RINV and INV with paired RINV)
+        function expandForInvoices(inputRow, itemCode, customer) {
+            // Remove any previous expanded rows after this inputRow
+            let next = inputRow.nextElementSibling;
+            while (next && next.classList.contains('expanded')) {
+                const toRemove = next;
+                next = next.nextElementSibling;
+                toRemove.remove();
+            }
+            if (!itemCode || !customer) {
+                updateTotals();
                 return;
             }
-            // Calculate summary
-            let totalItems = 0;
-            let totalOriginalValue = 0;
-            let totalHandlingValue = 0;
-            const chargeSummary = {
-                '0%': { count: 0, value: 0 },
-                '12%': { count: 0, value: 0 },
-                '50%': { count: 0, value: 0 },
-                'Not accepted': { count: 0, value: 0 }
-            };
-            const detailedResults = returnItems.map(item => {
-                const monthsDiff = calculateMonthsDifference(item.invoiceDate, item.returnDate);
-                const charge = calculateChargePercentage(monthsDiff);
-                const handlingValue = calculateHandlingAmount(parseFloat(item.sellingPrice), charge);
-                totalItems++;
-                totalOriginalValue += parseFloat(item.sellingPrice);
-                totalHandlingValue += handlingValue;
-                chargeSummary[charge].count++;
-                chargeSummary[charge].value += handlingValue;
-                return {
-                    ...item,
-                    monthsDiff: monthsDiff,
-                    charge: charge,
-                    handlingValue: handlingValue
-                };
+
+            // 1. Find all INV and RINV for this customer & style code
+            const invRows = salesData.filter(row =>
+                ((row['CUSTOMER'] || row['CUSTOMER NAME'] || row['CLIENT']) === customer) &&
+                ((row['ITEM CODE'] || row['ITEMCODE'] || row['SKU']) === itemCode)
+            );
+
+            // 2. Separate INV and RINV, map number part
+            const invNumbers = invRows.filter(row =>
+                /^INV-\d+/.test(row['INVOICE NUMBER'])
+            );
+            const rinvNumbersSet = new Set(
+                invRows
+                    .filter(row => /^RINV-\d+/.test(row['INVOICE NUMBER']))
+                    .map(row => row['INVOICE NUMBER'].replace(/^RINV-/, ""))
+            );
+
+            // 3. Exclude INV where matching RINV exists
+            const filteredInvs = invNumbers.filter(row => {
+                const invNumPart = row['INVOICE NUMBER'].replace(/^INV-/, "");
+                return !rinvNumbersSet.has(invNumPart);
             });
-            // Display results
-            displayResults(detailedResults, {
-                totalItems,
-                totalOriginalValue,
-                totalHandlingValue,
-                chargeSummary
+
+            // 4. For each remaining invoice, insert an expanded row
+            filteredInvs.forEach(inv => {
+                const tr = document.createElement('tr');
+                tr.classList.add('expanded', 'invoice-row');
+                tr.innerHTML = `
+                    <td></td>
+                    <td class="readonly">${itemCode}</td>
+                    <td class="readonly">${inv['INVOICE NUMBER']}</td>
+                    <td class="readonly">${inv['INVOICE DATE'] || inv['DATE'] || ''}</td>
+                    <td><input type="date" class="return-date-input"/></td>
+                    <td class="readonly">${inv['QTY'] || ''}</td>
+                    <td class="readonly">${inv['AMOUNT EXC VAT'] || inv['SELLING PRICE EXCL. VAT'] || inv['SELLING PRICE'] || ''}</td>
+                    <td class="age-cell">0 Months 0 Days</td>
+                    <td class="handling-pct-cell">0%</td>
+                    <td class="handling-charge-cell">R 0.00</td>
+                    <td></td>
+                `;
+                // Save original invoice info for quick lookup
+                tr.dataset.invoiceNumber = inv['INVOICE NUMBER'];
+                tr.dataset.invoiceDate = inv['INVOICE DATE'] || inv['DATE'] || '';
+                tr.dataset.amount = inv['AMOUNT EXC VAT'] || inv['SELLING PRICE EXCL. VAT'] || inv['SELLING PRICE'] || 0;
+                tr.dataset.qty = inv['QTY'] || 1;
+                inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
             });
+            updateTotals();
         }
 
-        // Calculate accurate months difference (invoice to return)
-        function calculateMonthsDifference(startDateStr, endDateStr) {
-            const startDate = new Date(startDateStr);
-            const endDate = new Date(endDateStr);
-            let months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + 
-                         (endDate.getMonth() - startDate.getMonth());
-            if (endDate.getDate() < startDate.getDate()) months--;
-            return months;
+        // Calculate handling for a given invoice row
+        function calculateRowHandling(expandedRow) {
+            const invDateStr = expandedRow.dataset.invoiceDate;
+            const returnDateInput = expandedRow.querySelector('.return-date-input');
+            if (!invDateStr || !returnDateInput.value) {
+                expandedRow.querySelector('.age-cell').textContent = "0 Months 0 Days";
+                expandedRow.querySelector('.handling-pct-cell').textContent = "0%";
+                expandedRow.querySelector('.handling-charge-cell').textContent = "R 0.00";
+                return;
+            }
+            const age = calcMonthsDays(invDateStr, returnDateInput.value);
+            expandedRow.querySelector('.age-cell').textContent = `${age.months} Months ${age.days} Days`;
+
+            // Handling logic:
+            // 0-5 months: 0%
+            // 6-11 months: 12%
+            // 12-23 months: 50%
+            // 24+ months: Not accepted
+            let pct = 0;
+            if (age.months >= 24) pct = -1;
+            else if (age.months >= 12) pct = 50;
+            else if (age.months >= 6) pct = 12;
+            else pct = 0;
+            expandedRow.querySelector('.handling-pct-cell').textContent = (pct < 0) ? "Not accepted" : (pct + "%");
+
+            // Amount
+            const originalValue = parseFloat(expandedRow.dataset.amount || 0);
+            let charge = "R 0.00";
+            if (pct > 0) charge = "R " + (originalValue * pct / 100).toFixed(2);
+            else if (pct === 0) charge = "R 0.00";
+            else if (pct < 0) charge = "-";
+            expandedRow.querySelector('.handling-charge-cell').textContent = charge;
         }
 
-        // Determine charge rate based on months since invoice
-        function calculateChargePercentage(monthsDiff) {
-            if (monthsDiff >= 24) return "Not accepted";
-            if (monthsDiff >= 12) return "50%";
-            if (monthsDiff >= 6) return "12%";
-            return "0%";
+        // Calculate months and days between dates
+        function calcMonthsDays(start, end) {
+            const d1 = new Date(start);
+            const d2 = new Date(end);
+            let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+            let days = d2.getDate() - d1.getDate();
+            if (days < 0) {
+                months--;
+                // Days in previous month
+                const prevMonth = new Date(d2.getFullYear(), d2.getMonth(), 0).getDate();
+                days += prevMonth;
+            }
+            if (months < 0) months = 0;
+            if (days < 0) days = 0;
+            return { months, days };
         }
 
-        // Calculate handling charge amount
-        function calculateHandlingAmount(originalAmount, charge) {
-            if (charge === "Not accepted") return 0;
-            if (charge === "50%") return originalAmount * 0.5;
-            if (charge === "12%") return originalAmount * 0.12;
-            return 0;
+        // Calculate totals for qty and handling charges
+        function updateTotals() {
+            let totalQty = 0, totalHandling = 0;
+            document.querySelectorAll('tr.expanded').forEach(row => {
+                // Only count rows with a visible input (in DOM)
+                if (row.style.display === "none") return;
+                const qty = parseInt(row.dataset.qty || "0", 10);
+                const charge = row.querySelector('.handling-charge-cell').textContent;
+                if (!isNaN(qty)) totalQty += qty;
+                if (charge && charge.startsWith("R ")) {
+                    const val = parseFloat(charge.replace("R ", ""));
+                    if (!isNaN(val)) totalHandling += val;
+                }
+            });
+            document.getElementById('totalQty').textContent = totalQty;
+            document.getElementById('totalHandlingCharge').textContent = "R " + totalHandling.toFixed(2);
         }
 
-        // Show results summary and printable report
-        function displayResults(detailedResults, summary) {
-            const resultsDiv = document.getElementById('results');
-            const summaryDiv = document.getElementById('summaryResults');
-            const printableArea = document.getElementById('printableArea');
-            // Create printable content
-            printableArea.innerHTML = `
-                <h1>SIMA Eyewear Returns Handling Report</h1>
-                <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-                <p><strong>Customer:</strong> ${detailedResults[0].customer}</p>
-                <p><strong>Total Items:</strong> ${summary.totalItems}</p>
-                <h2>Items Details</h2>
-                <table border="1" cellpadding="5" cellspacing="0" width="100%">
-                    <tr>
-                        <th>Item Code</th>
-                        <th>Brand/Style</th>
-                        <th>Invoice #</th>
-                        <th>Invoice Date</th>
-                        <th>Return Date</th>
-                        <th>Months</th>
-                        <th>Charge</th>
-                        <th>Original Value</th>
-                        <th>Handling Value</th>
-                    </tr>
-                    ${detailedResults.map(item => `
-                        <tr>
-                            <td>${item.itemCode}</td>
-                            <td>${item.brand} - ${item.style}</td>
-                            <td>${item.invoiceNumber}</td>
-                            <td>${item.invoiceDate}</td>
-                            <td>${item.returnDate}</td>
-                            <td>${item.monthsDiff}</td>
-                            <td>${item.charge}</td>
-                            <td>R ${parseFloat(item.sellingPrice).toFixed(2)}</td>
-                            <td>R ${item.handlingValue.toFixed(2)}</td>
-                        </tr>
-                    `).join('')}
-                </table>
-                <h2>Summary</h2>
-                <table border="1" cellpadding="5" cellspacing="0" width="100%">
-                    <tr>
-                        <th>Charge Type</th>
-                        <th>Item Count</th>
-                        <th>Total Value</th>
-                    </tr>
-                    ${Object.entries(summary.chargeSummary).map(([charge, data]) => `
-                        <tr>
-                            <td>${charge}</td>
-                            <td>${data.count}</td>
-                            <td>R ${data.value.toFixed(2)}</td>
-                        </tr>
-                    `).join('')}
-                    <tr class="highlight">
-                        <td><strong>Grand Total</strong></td>
-                        <td><strong>${summary.totalItems}</strong></td>
-                        <td><strong>R ${summary.totalHandlingValue.toFixed(2)}</strong></td>
-                    </tr>
-                </table>
-                <p class="highlight">Note: This is a handling charge calculation only. Final amounts subject to verification.</p>
-                <p>Printed on: ${new Date().toLocaleString()}</p>
-            `;
-            // Create on-screen summary
-            summaryDiv.innerHTML = `
-                <h3>Summary of Charges</h3>
-                <p><strong>Total Items Processed:</strong> ${summary.totalItems}</p>
-                <p><strong>Total Original Value:</strong> R ${summary.totalOriginalValue.toFixed(2)}</p>
-                <p><strong>Total Handling Charges:</strong> R ${summary.totalHandlingValue.toFixed(2)}</p>
-                <h3>Breakdown by Charge Type</h3>
-                <table>
-                    <tr>
-                        <th>Charge Type</th>
-                        <th>Item Count</th>
-                        <th>Total Value</th>
-                    </tr>
-                    ${Object.entries(summary.chargeSummary).filter(([_, data]) => data.count > 0).map(([charge, data]) => `
-                        <tr>
-                            <td>${charge}</td>
-                            <td>${data.count}</td>
-                            <td>R ${data.value.toFixed(2)}</td>
-                        </tr>
-                    `).join('')}
-                </table>
-            `;
-            resultsDiv.style.display = 'block';
-        }
-
-        // Print the current report
+        // Print the results
         function printReport() {
             const printableArea = document.getElementById('printableArea');
+            let html = `<h1>SIMA Eyewear Returns Handling Report</h1>
+                        <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                        <table border="1" cellpadding="5" cellspacing="0" width="100%">
+                        <tr>
+                            <th>Seq No</th>
+                            <th>Item Code</th>
+                            <th>Invoice Number</th>
+                            <th>Invoice Date</th>
+                            <th>Return Date</th>
+                            <th>Qty</th>
+                            <th>Amount Exc VAT</th>
+                            <th>Age (M D format)</th>
+                            <th>Handling %</th>
+                            <th>Handling Charge</th>
+                        </tr>`;
+            let seq = 1;
+            document.querySelectorAll('tr.expanded').forEach(row => {
+                html += `<tr>
+                    <td>${seq++}</td>
+                    <td>${row.querySelector('td:nth-child(2)').textContent}</td>
+                    <td>${row.querySelector('td:nth-child(3)').textContent}</td>
+                    <td>${row.querySelector('td:nth-child(4)').textContent}</td>
+                    <td>${row.querySelector('.return-date-input')?.value || ""}</td>
+                    <td>${row.querySelector('td:nth-child(6)').textContent}</td>
+                    <td>${row.querySelector('td:nth-child(7)').textContent}</td>
+                    <td>${row.querySelector('.age-cell').textContent}</td>
+                    <td>${row.querySelector('.handling-pct-cell').textContent}</td>
+                    <td>${row.querySelector('.handling-charge-cell').textContent}</td>
+                </tr>`;
+            });
+            // Totals
+            html += `<tr class="totals-row">
+                        <td colspan="5" style="text-align:right;">Totals:</td>
+                        <td>${document.getElementById('totalQty').textContent}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td>${document.getElementById('totalHandlingCharge').textContent}</td>
+                        <td></td>
+                    </tr>`;
+            html += `</table>`;
+            printableArea.innerHTML = html;
             printableArea.style.display = 'block';
             window.print();
             printableArea.style.display = 'none';
+            showPostActionButtons();
         }
 
-        // Reset the form to initial state
-        function resetForm() {
-            // Clear all rows except the first one
-            const tbody = document.querySelector('#returnsTable tbody');
-            while (tbody.rows.length > 1) {
-                tbody.deleteRow(1);
+        // Download as PDF using jsPDF
+        function downloadPDF() {
+            const doc = new window.jspdf.jsPDF({orientation: "landscape"});
+            doc.setFontSize(16);
+            doc.text("SIMA Eyewear Returns Handling Report", 10, 15);
+            doc.setFontSize(10);
+            doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 23);
+
+            // Table headers
+            const headers = [["Seq No", "Item Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
+            let body = [];
+            let seq = 1;
+            document.querySelectorAll('tr.expanded').forEach(row => {
+                body.push([
+                    seq++,
+                    row.querySelector('td:nth-child(2)').textContent,
+                    row.querySelector('td:nth-child(3)').textContent,
+                    row.querySelector('td:nth-child(4)').textContent,
+                    row.querySelector('.return-date-input')?.value || "",
+                    row.querySelector('td:nth-child(6)').textContent,
+                    row.querySelector('td:nth-child(7)').textContent,
+                    row.querySelector('.age-cell').textContent,
+                    row.querySelector('.handling-pct-cell').textContent,
+                    row.querySelector('.handling-charge-cell').textContent
+                ]);
+            });
+            // Totals
+            body.push([
+                "", "", "", "", "Totals:",
+                document.getElementById('totalQty').textContent,
+                "", "", "",
+                document.getElementById('totalHandlingCharge').textContent
+            ]);
+
+            // Add table using autoTable plugin if available, else fallback to basic
+            if (doc.autoTable) {
+                doc.autoTable({
+                    head: headers,
+                    body: body,
+                    startY: 30
+                });
+            } else {
+                // Fallback: simple table
+                let y = 30;
+                headers[0].forEach((h, idx) => {
+                    doc.text(h, 10 + idx * 35, y);
+                });
+                y += 6;
+                body.forEach(row => {
+                    row.forEach((d, idx) => {
+                        doc.text(String(d), 10 + idx * 35, y);
+                    });
+                    y += 6;
+                });
             }
-            // Reset the first row
-            const firstRow = tbody.rows[0];
-            firstRow.querySelector('.customer-select').value = '';
-            firstRow.querySelector('.item-code').value = '';
-            firstRow.querySelector('.invoice-select').innerHTML = '<option value="">Select Customer & Item</option>';
-            firstRow.querySelector('.invoice-select').disabled = true;
-            firstRow.querySelector('.return-date').valueAsDate = new Date();
-            // Hide results
-            document.getElementById('results').style.display = 'none';
+            doc.save("returns_handling_report.pdf");
+            showPostActionButtons();
         }
 
-        // Clear all local sales data and reset UI
-        function clearAllData() {
-            if (confirm('Are you sure you want to clear ALL sales data? This cannot be undone.')) {
-                localStorage.removeItem(SALES_DATA_KEY);
-                localStorage.removeItem(LAST_UPLOAD_KEY);
-                salesData = [];
-                updateDataStatus(false);
-                resetForm();
-                document.getElementById('calculatorSection').style.display = 'none';
-                showStatus('All sales data cleared. Please upload a new sales report.', false);
-            }
+        // Show post-action buttons (add another, clear)
+        function showPostActionButtons() {
+            document.getElementById('postActionButtons').classList.remove('hidden');
+        }
+        function hidePostActionButtons() {
+            document.getElementById('postActionButtons').classList.add('hidden');
         }
 
-        // Setup event listeners after DOM is loaded
-        function setupEventListeners() {
-            // File upload handling
-            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+        // RESET: everything
+        function resetAll() {
+            renderInputLines(DEFAULT_LINES);
+            document.getElementById('customerSelect').value = "";
+            hidePostActionButtons();
+        }
 
-            // Clear data button
-            document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
+        // Event Listeners
+        function setupEvents() {
+            // Customer change
+            document.getElementById('customerSelect').addEventListener('change', function () {
+                renderInputLines(DEFAULT_LINES);
+            });
 
-            // Calculate button
-            document.getElementById('calculateBtn').addEventListener('click', calculateAllCharges);
+            // Add Line
+            document.getElementById('addLineBtn').addEventListener('click', function () {
+                addInputLine();
+            });
 
-            // Print button
+            // Remove Line
+            document.getElementById('returnsTableBody').addEventListener('click', function (e) {
+                if (e.target.classList.contains('remove-line-btn')) {
+                    const row = e.target.closest('tr');
+                    removeInputLine(row);
+                }
+            });
+
+            // Style code entry (detect change/blur/enter)
+            document.getElementById('returnsTableBody').addEventListener('change', function (e) {
+                if (e.target.classList.contains('item-code-input')) {
+                    const inputRow = e.target.closest('tr.input-row');
+                    const code = e.target.value.trim();
+                    const customer = document.getElementById('customerSelect').value;
+                    expandForInvoices(inputRow, code, customer);
+                }
+            });
+
+            // When return date changes in expanded rows, recalculate
+            document.getElementById('returnsTableBody').addEventListener('change', function (e) {
+                if (e.target.classList.contains('return-date-input')) {
+                    const expandedRow = e.target.closest('tr.expanded');
+                    calculateRowHandling(expandedRow);
+                    updateTotals();
+                }
+            });
+
+            // Calculate all
+            document.getElementById('calculateBtn').addEventListener('click', function () {
+                // For all expanded rows, recalc (in case user hasn't tabbed out)
+                document.querySelectorAll('tr.expanded').forEach(calculateRowHandling);
+                updateTotals();
+            });
+
+            // Print
             document.getElementById('printBtn').addEventListener('click', printReport);
 
-            // Reset button
-            document.getElementById('resetBtn').addEventListener('click', resetForm);
+            // Download PDF
+            document.getElementById('downloadBtn').addEventListener('click', downloadPDF);
 
-            // Delegate events for dynamic elements
-            document.getElementById('returnsTable').addEventListener('change', function(e) {
-                if (e.target.classList.contains('customer-select') || e.target.classList.contains('item-code')) {
-                    updateInvoiceDropdown(e.target);
-                }
-            });
+            // Reset
+            document.getElementById('resetBtn').addEventListener('click', resetAll);
+            document.getElementById('resetBtn2').addEventListener('click', resetAll);
 
-            document.getElementById('returnsTable').addEventListener('click', function(e) {
-                if (e.target.classList.contains('add-row-btn')) {
-                    addNewRow();
-                }
-                if (e.target.classList.contains('remove-row-btn')) {
-                    e.target.closest('tr').remove();
-                }
+            // Add another return (just clears form)
+            document.getElementById('addReturnBtn').addEventListener('click', function(){
+                resetAll();
             });
         }
 
-        // Control upload visibility: only on the 1st of the month
-        function setUploadVisibility() {
-            const now = new Date();
-            const day = now.getDate();
-            const uploadSection = document.getElementById('uploadSection');
-            const uploadMsg = document.getElementById('uploadOnlyFirstMsg');
-            if (day === 1) {
-                uploadSection.style.display = "";
-                uploadMsg.style.display = "none";
-            } else {
-                uploadSection.style.display = "none";
-                uploadMsg.style.display = "";
-            }
-        }
-
-        // On page load: initialize default values and check storage
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set today's date as default return date
-            const firstReturnDate = document.querySelector('.return-date');
-            if (firstReturnDate) firstReturnDate.valueAsDate = new Date();
-            // Load from storage if present
-            salesData = loadSalesData();
-            if (salesData && salesData.length > 0) {
-                updateDataStatus(true);
-                populateCustomerDropdowns();
-                document.getElementById('calculatorSection').style.display = 'block';
-            } else {
-                updateDataStatus(false);
-            }
-            setUploadVisibility();
-            setupEventListeners();
+        // On page load: fetch and prep
+        document.addEventListener('DOMContentLoaded', function () {
+            renderInputLines(DEFAULT_LINES);
+            setupEvents();
+            Papa.parse(SALES_CSV_URL, {
+                download: true,
+                header: true,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    const normalized = results.data.map(normalizeRow).filter(row => !!row['INVOICE NUMBER'] && !!row['ITEM CODE']);
+                    salesData = normalized;
+                    updateDataStatus(true);
+                    populateCustomerDropdown();
+                    document.getElementById('calculatorSection').style.display = '';
+                },
+                error: function (error) {
+                    updateDataStatus(false);
+                }
+            });
         });
     </script>
 </body>

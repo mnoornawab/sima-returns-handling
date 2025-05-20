@@ -12,7 +12,7 @@
     h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
     .section { background: #f9f9f9; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);}
     label { display: block; margin: 10px 0 5px; font-weight: bold; }
-    input, select, button { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+    input, select, button { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
     button { background-color: #3498db; color: white; border: none; cursor: pointer; margin-top: 10px; transition: background-color 0.3s; padding: 8px 12px;}
     button:hover { background-color: #2980b9; }
     button.secondary { background-color: #6c757d; }
@@ -22,7 +22,7 @@
     .data-loaded { background-color: #d4edda; color: #155724; }
     .data-empty { background-color: #f8d7da; color: #721c24; }
     table { width: 100%; border-collapse: collapse; margin: 20px 0;}
-    th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; vertical-align: middle; font-size: 13px;}
+    th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; vertical-align: middle; font-size: 12px;}
     th { background-color: #e5e5e5; }
     tr.data-row { background: #fff; }
     tr.data-row:nth-child(even) { background: #f8fafe; }
@@ -39,7 +39,7 @@
     .modal-content { background:#fff; margin:8% auto; padding:20px; border-radius:8px; width:95%; max-width:520px; box-shadow:0 2px 10px rgba(0,0,0,0.2);}
     .modal-content h3 { margin-top: 0; }
     .modal-list { width:100%; border-collapse:collapse;}
-    .modal-list th, .modal-list td { font-size:13px; border:1px solid #ddd; padding:3px 6px;}
+    .modal-list th, .modal-list td { font-size:12px; border:1px solid #ddd; padding:3px 6px;}
     .modal-list tr { background: #f9f9f9;}
     .modal-list tr.selected { background: #d3e8fc;}
     .modal-list tr:hover { background:#e5e5e5; cursor:pointer;}
@@ -50,7 +50,7 @@
         #printableArea { position: absolute; left: 0; top: 0; width: 100%; background: #fff; z-index: 9999;}
     }
     @media (max-width: 768px) {
-        table, th, td { font-size: 12px; }
+        table, th, td { font-size: 11px; }
     }
 </style>
 </head>
@@ -122,7 +122,7 @@
     <div id="invoiceModal" class="modal no-print">
         <div class="modal-content">
             <h3>Select Invoice for Return</h3>
-            <p>Multiple invoices found for this style code. Please select the correct invoice for the return:</p>
+            <p>Multiple uncredited invoices found for this style code. Please select the correct invoice for the return:</p>
             <table class="modal-list">
                 <thead>
                     <tr>
@@ -244,7 +244,6 @@ function updateSeqNos() {
     });
 }
 function expandForInvoices(inputRow, styleCode, customer) {
-    // Remove any previously expanded data row after this inputRow (but not other input lines)
     let next = inputRow.nextElementSibling;
     if (next && !next.classList.contains('input-row')) {
         next.remove();
@@ -253,21 +252,25 @@ function expandForInvoices(inputRow, styleCode, customer) {
         updateTotals();
         return;
     }
-    // Find all INV and RINV for this customer & style code
+    // All sales (INV or RINV) for this customer & style
     const invRows = salesData.filter(row =>
         getVal(row, "CUSTOMER") === customer && getVal(row, "STYLE") === styleCode
     );
+    // All original invoice numbers (INV-xxxxx)
     const invNumbers = invRows.filter(row =>
         /^INV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
+    // All return invoice numbers (RINV-xxxxx or RINV-xxxxx-1 etc)
     const rinvNumbersSet = new Set(
         invRows
             .filter(row => /^RINV-\d+/.test(getVal(row, "INVOICE NUMBER")))
-            .map(row => getVal(row, "INVOICE NUMBER").replace(/^RINV-/, ""))
+            .map(row => getVal(row, "INVOICE NUMBER").match(/^RINV-(\d+)/)?.[1])
+            .filter(Boolean)
     );
+    // Filter ONLY invoices that are not yet credited (no matching RINV)
     const filteredInvs = invNumbers.filter(row => {
-        const invNumPart = getVal(row, "INVOICE NUMBER").replace(/^INV-/, "");
-        return !rinvNumbersSet.has(invNumPart);
+        const invNumPart = getVal(row, "INVOICE NUMBER").match(/^INV-(\d+)/)?.[1];
+        return invNumPart && !rinvNumbersSet.has(invNumPart);
     });
     if (filteredInvs.length === 0) {
         updateTotals();

@@ -203,7 +203,7 @@
                             <option value="">Select Customer & Item</option>
                         </select>
                     </td>
-                    <td><input type="date" class="return-date" value="<?php echo date('Y-m-d'); ?>"></td>
+                    <td><input type="date" class="return-date"></td>
                     <td><button class="add-row-btn success">+ Add</button></td>
                 </tr>
             </tbody>
@@ -227,38 +227,76 @@
     </div>
 
     <script>
-        // Global variables
-        let salesData = [];
+        // Constants for localStorage
         const SALES_DATA_KEY = 'sima_sales_data';
         const LAST_UPLOAD_KEY = 'sima_last_upload';
-        
-        // Initialize when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set today's date as default return date
-            document.querySelector('.return-date').valueAsDate = new Date();
-            
-            // Check if we have existing data
-            checkExistingData();
-            
-            // Set up event listeners
-            setupEventListeners();
-        });
-        
-        function checkExistingData() {
-            const savedData = localStorage.getItem(SALES_DATA_KEY);
-            if (savedData) {
-                try {
-                    salesData = JSON.parse(savedData);
-                    updateDataStatus(true);
-                    populateCustomerDropdowns();
-                    document.getElementById('calculatorSection').style.display = 'block';
-                } catch (e) {
-                    console.error("Error parsing saved data:", e);
-                    clearAllData();
+
+        // Global variable for in-memory sales data
+        let salesData = [];
+
+        // Utility: Normalize all row keys to uppercase and trim values
+        function normalizeRow(row) {
+            const normalized = {};
+            for (const key in row) {
+                normalized[key.trim().toUpperCase()] = (row[key] || '').trim();
+            }
+            return normalized;
+        }
+
+        // Construct a unique key for each sales record (invoice + item code)
+        function getSalesKey(row) {
+            return (row['INVOICE NUMBER'] || row['INVOICE'] || row['INVNO'] || '') + '|' +
+                   (row['ITEM CODE'] || row['ITEMCODE'] || row['SKU'] || '');
+        }
+
+        // Load sales data from localStorage
+        function loadSalesData() {
+            const saved = localStorage.getItem(SALES_DATA_KEY);
+            if (!saved) return [];
+            try { return JSON.parse(saved); } catch { return []; }
+        }
+
+        // Save sales data to localStorage
+        function saveSalesData(data) {
+            localStorage.setItem(SALES_DATA_KEY, JSON.stringify(data));
+            localStorage.setItem(LAST_UPLOAD_KEY, new Date().toLocaleDateString());
+        }
+
+        // Append new monthly data, skipping duplicates (by invoice + item code)
+        function appendMonthlyData(newRows) {
+            let oldData = loadSalesData();
+            const oldKeys = new Set(oldData.map(getSalesKey));
+            let duplicates = 0;
+            const toAdd = [];
+            for (const row of newRows) {
+                const key = getSalesKey(row);
+                if (!oldKeys.has(key)) {
+                    toAdd.push(row);
+                } else {
+                    duplicates++;
                 }
             }
+            const updated = [...oldData, ...toAdd];
+            saveSalesData(updated);
+            salesData = updated;
+            return { added: toAdd.length, duplicates };
         }
-        
+
+        // Replace all data
+        function replaceAllData(newRows) {
+            saveSalesData(newRows);
+            salesData = newRows;
+            return { added: newRows.length, duplicates: 0 };
+        }
+
+        // Show status messages
+        function showStatus(msg, success) {
+            const el = document.getElementById('dataStatus');
+            el.textContent = msg;
+            el.className = success ? 'data-loaded' : 'data-empty';
+        }
+
+        // Update the UI's data status
         function updateDataStatus(hasData) {
             const statusElement = document.getElementById('dataStatus');
             if (hasData) {
@@ -267,102 +305,56 @@
                 statusElement.className = 'data-loaded';
             } else {
                 statusElement.textContent = 'No sales report data loaded. Please upload your monthly sales report.';
-                statusClass = 'data-empty';
+                statusElement.className = 'data-empty';
             }
         }
-        
-        function setupEventListeners() {
-            // File upload handling
-            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
-            
-            // Clear data button
-            document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
-            
-            // Calculate button
-            document.getElementById('calculateBtn').addEventListener('click', calculateAllCharges);
-            
-            // Print button
-            document.getElementById('printBtn').addEventListener('click', printReport);
-            
-            // Reset button
-            document.getElementById('resetBtn').addEventListener('click', resetForm);
-            
-            // Delegate events for dynamic elements
-            document.getElementById('returnsTable').addEventListener('change', function(e) {
-                if (e.target.classList.contains('customer-select') || e.target.classList.contains('item-code')) {
-                    updateInvoiceDropdown(e.target);
-                }
-            });
-            
-            document.getElementById('returnsTable').addEventListener('click', function(e) {
-                if (e.target.classList.contains('add-row-btn')) {
-                    addNewRow();
-                }
-                if (e.target.classList.contains('remove-row-btn')) {
-                    e.target.closest('tr').remove();
-                }
-            });
-        }
-        
+
+        // Main upload handler
         function handleFileUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
-            
+
             const updateMethod = document.querySelector('input[name="updateMethod"]:checked').value;
-            
             Papa.parse(file, {
                 header: true,
+                skipEmptyLines: true,
                 complete: function(results) {
-                    if (results.data.length === 0) {
-                        alert('The uploaded file appears to be empty or invalid.');
+                    if (!results.data.length) {
+                        showStatus('The uploaded file is empty or invalid.', false);
                         return;
                     }
-                    
-                    // Normalize column names (trim and uppercase)
-                    const normalizedData = results.data.map(row => {
-                        const normalizedRow = {};
-                        for (const key in row) {
-                            normalizedRow[key.trim().toUpperCase()] = row[key];
-                        }
-                        return normalizedRow;
-                    });
-                    
-                    if (updateMethod === 'replace') {
-                        // Replace existing data
-                        salesData = normalizedData;
-                    } else {
-                        // Append new data (monthly update)
-                        salesData = [...(salesData || []), ...normalizedData];
+                    // Normalize and validate
+                    const normalized = results.data.map(normalizeRow).filter(row => !!row['INVOICE NUMBER'] && !!row['ITEM CODE']);
+                    if (!normalized.length) {
+                        showStatus('No valid rows found (missing Invoice Number or Item Code).', false);
+                        return;
                     }
-                    
-                    // Save to localStorage
-                    localStorage.setItem(SALES_DATA_KEY, JSON.stringify(salesData));
-                    localStorage.setItem(LAST_UPLOAD_KEY, new Date().toLocaleDateString());
-                    
-                    // Update UI
+                    let result;
+                    if (updateMethod === 'replace') {
+                        result = replaceAllData(normalized);
+                    } else {
+                        result = appendMonthlyData(normalized);
+                    }
                     updateDataStatus(true);
                     populateCustomerDropdowns();
                     document.getElementById('calculatorSection').style.display = 'block';
-                    
-                    // Reset file input
+                    showStatus(`Upload complete. Added: ${result.added}, Duplicates skipped: ${result.duplicates}`, true);
                     e.target.value = '';
                 },
                 error: function(error) {
-                    alert('Error parsing file: ' + error.message);
+                    showStatus('Error parsing file: ' + error.message, false);
                 }
             });
         }
-        
+
+        // Populate all customer dropdowns in the return table
         function populateCustomerDropdowns() {
             const customerSelects = document.querySelectorAll('.customer-select');
-            
             // Get unique customers
-            const customers = [...new Set(salesData.map(row => row.CUSTOMER || row['CUSTOMER NAME'] || row.CLIENT))].filter(Boolean).sort();
-            
+            const customers = [...new Set(salesData.map(row => row['CUSTOMER'] || row['CUSTOMER NAME'] || row['CLIENT']))].filter(Boolean).sort();
             customerSelects.forEach(select => {
                 // Save current selection
                 const currentValue = select.value;
-                
                 // Rebuild options
                 select.innerHTML = '<option value="">Select Customer</option>';
                 customers.forEach(customer => {
@@ -371,39 +363,38 @@
                     option.textContent = customer;
                     select.appendChild(option);
                 });
-                
                 // Restore selection if possible
                 if (currentValue && customers.includes(currentValue)) {
                     select.value = currentValue;
                 }
             });
         }
-        
+
+        // Update invoice dropdown when customer or item code changes
         function updateInvoiceDropdown(sourceElement) {
             const row = sourceElement.closest('tr');
             const customerSelect = row.querySelector('.customer-select');
             const itemCodeInput = row.querySelector('.item-code');
             const invoiceSelect = row.querySelector('.invoice-select');
-            
+
             invoiceSelect.innerHTML = '<option value="">Select Invoice</option>';
             invoiceSelect.disabled = true;
-            
+
             const customer = customerSelect.value;
             const itemCode = itemCodeInput.value;
-            
+
             if (customer && itemCode) {
                 const matchingInvoices = salesData.filter(row => {
-                    const rowCustomer = row.CUSTOMER || row['CUSTOMER NAME'] || row.CLIENT;
-                    const rowItemCode = row.ITEMCODE || row['ITEM CODE'] || row.SKU;
+                    const rowCustomer = row['CUSTOMER'] || row['CUSTOMER NAME'] || row['CLIENT'];
+                    const rowItemCode = row['ITEM CODE'] || row['ITEMCODE'] || row['SKU'];
                     return rowCustomer === customer && rowItemCode === itemCode;
                 });
-                
                 if (matchingInvoices.length > 0) {
                     invoiceSelect.disabled = false;
                     matchingInvoices.forEach(invoice => {
                         const option = document.createElement('option');
-                        const invNumber = invoice['INVOICE NUMBER'] || invoice.INVOICE || invoice.INVNO;
-                        const invDate = invoice.DATE || invoice['INVOICE DATE'] || invoice.TRANSACTIONDATE;
+                        const invNumber = invoice['INVOICE NUMBER'] || invoice['INVOICE'] || invoice['INVNO'];
+                        const invDate = invoice['DATE'] || invoice['INVOICE DATE'] || invoice['TRANSACTIONDATE'];
                         option.value = invNumber;
                         option.textContent = `${invNumber} - ${invDate}`;
                         option.dataset.invoiceDate = invDate;
@@ -412,11 +403,11 @@
                 }
             }
         }
-        
+
+        // Add a new row to the returns table
         function addNewRow() {
             const tbody = document.querySelector('#returnsTable tbody');
             const newRow = document.createElement('tr');
-            
             newRow.innerHTML = `
                 <td>
                     <select class="customer-select">
@@ -432,61 +423,54 @@
                 <td><input type="date" class="return-date" value="${new Date().toISOString().split('T')[0]}"></td>
                 <td><button class="remove-row-btn danger">× Remove</button></td>
             `;
-            
             tbody.appendChild(newRow);
             populateCustomerDropdowns();
+            newRow.querySelector('.return-date').valueAsDate = new Date();
         }
-        
+
+        // Calculate all handling charges
         function calculateAllCharges() {
             const rows = document.querySelectorAll('#returnsTable tbody tr');
             const returnItems = [];
-            
             // Validate all rows first
             for (const row of rows) {
                 const customerSelect = row.querySelector('.customer-select');
                 const itemCode = row.querySelector('.item-code').value;
                 const invoiceSelect = row.querySelector('.invoice-select');
                 const returnDate = row.querySelector('.return-date').value;
-                
                 if (!customerSelect.value || !itemCode || !invoiceSelect.value || !returnDate) {
                     alert('Please complete all fields in all rows before calculating');
                     return;
                 }
-                
                 const invoiceNumber = invoiceSelect.value;
                 const invoiceDate = invoiceSelect.options[invoiceSelect.selectedIndex].dataset.invoiceDate;
-                
                 // Find the original invoice data
                 const originalInvoice = salesData.find(row => {
-                    const invNumber = row['INVOICE NUMBER'] || row.INVOICE || row.INVNO;
+                    const invNumber = row['INVOICE NUMBER'] || row['INVOICE'] || row['INVNO'];
                     return invNumber === invoiceNumber;
                 });
-                
                 if (!originalInvoice) {
                     alert(`Could not find original invoice data for ${invoiceNumber}`);
                     return;
                 }
-                
                 returnItems.push({
                     customer: customerSelect.value,
                     itemCode: itemCode,
                     invoiceNumber: invoiceNumber,
                     invoiceDate: invoiceDate,
                     returnDate: returnDate,
-                    brand: originalInvoice.BRAND || 'N/A',
-                    style: originalInvoice.STYLE || 'N/A',
-                    quantity: originalInvoice.QTY || 1,
+                    brand: originalInvoice['BRAND'] || 'N/A',
+                    style: originalInvoice['STYLE'] || 'N/A',
+                    quantity: originalInvoice['QTY'] || 1,
                     sellingPrice: originalInvoice['SELLING PRICE INCL. VAT'] || 
                                  originalInvoice['SELLING PRICE'] || 
-                                 originalInvoice.AMOUNT || 0
+                                 originalInvoice['AMOUNT'] || 0
                 });
             }
-            
             if (returnItems.length === 0) {
                 alert('No valid return items to calculate');
                 return;
             }
-            
             // Calculate summary
             let totalItems = 0;
             let totalOriginalValue = 0;
@@ -497,19 +481,15 @@
                 '50%': { count: 0, value: 0 },
                 'Not accepted': { count: 0, value: 0 }
             };
-            
             const detailedResults = returnItems.map(item => {
                 const monthsDiff = calculateMonthsDifference(item.invoiceDate, item.returnDate);
                 const charge = calculateChargePercentage(monthsDiff);
                 const handlingValue = calculateHandlingAmount(parseFloat(item.sellingPrice), charge);
-                
                 totalItems++;
                 totalOriginalValue += parseFloat(item.sellingPrice);
                 totalHandlingValue += handlingValue;
-                
                 chargeSummary[charge].count++;
                 chargeSummary[charge].value += handlingValue;
-                
                 return {
                     ...item,
                     monthsDiff: monthsDiff,
@@ -517,7 +497,6 @@
                     handlingValue: handlingValue
                 };
             });
-            
             // Display results
             displayResults(detailedResults, {
                 totalItems,
@@ -526,40 +505,44 @@
                 chargeSummary
             });
         }
-        
+
+        // Calculate accurate months difference (invoice to return)
         function calculateMonthsDifference(startDateStr, endDateStr) {
             const startDate = new Date(startDateStr);
             const endDate = new Date(endDateStr);
-            return (endDate.getFullYear() - startDate.getFullYear()) * 12 + 
-                   (endDate.getMonth() - startDate.getMonth());
+            let months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + 
+                         (endDate.getMonth() - startDate.getMonth());
+            if (endDate.getDate() < startDate.getDate()) months--;
+            return months;
         }
-        
+
+        // Determine charge rate based on months since invoice
         function calculateChargePercentage(monthsDiff) {
             if (monthsDiff >= 24) return "Not accepted";
             if (monthsDiff >= 12) return "50%";
             if (monthsDiff >= 6) return "12%";
             return "0%";
         }
-        
+
+        // Calculate handling charge amount
         function calculateHandlingAmount(originalAmount, charge) {
             if (charge === "Not accepted") return 0;
             if (charge === "50%") return originalAmount * 0.5;
             if (charge === "12%") return originalAmount * 0.12;
             return 0;
         }
-        
+
+        // Show results summary and printable report
         function displayResults(detailedResults, summary) {
             const resultsDiv = document.getElementById('results');
             const summaryDiv = document.getElementById('summaryResults');
             const printableArea = document.getElementById('printableArea');
-            
             // Create printable content
             printableArea.innerHTML = `
                 <h1>SIMA Eyewear Returns Handling Report</h1>
                 <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
                 <p><strong>Customer:</strong> ${detailedResults[0].customer}</p>
                 <p><strong>Total Items:</strong> ${summary.totalItems}</p>
-                
                 <h2>Items Details</h2>
                 <table border="1" cellpadding="5" cellspacing="0" width="100%">
                     <tr>
@@ -587,7 +570,6 @@
                         </tr>
                     `).join('')}
                 </table>
-                
                 <h2>Summary</h2>
                 <table border="1" cellpadding="5" cellspacing="0" width="100%">
                     <tr>
@@ -608,18 +590,15 @@
                         <td><strong>R ${summary.totalHandlingValue.toFixed(2)}</strong></td>
                     </tr>
                 </table>
-                
                 <p class="highlight">Note: This is a handling charge calculation only. Final amounts subject to verification.</p>
                 <p>Printed on: ${new Date().toLocaleString()}</p>
             `;
-            
             // Create on-screen summary
             summaryDiv.innerHTML = `
                 <h3>Summary of Charges</h3>
                 <p><strong>Total Items Processed:</strong> ${summary.totalItems}</p>
                 <p><strong>Total Original Value:</strong> R ${summary.totalOriginalValue.toFixed(2)}</p>
                 <p><strong>Total Handling Charges:</strong> R ${summary.totalHandlingValue.toFixed(2)}</p>
-                
                 <h3>Breakdown by Charge Type</h3>
                 <table>
                     <tr>
@@ -636,24 +615,24 @@
                     `).join('')}
                 </table>
             `;
-            
             resultsDiv.style.display = 'block';
         }
-        
+
+        // Print the current report
         function printReport() {
             const printableArea = document.getElementById('printableArea');
             printableArea.style.display = 'block';
             window.print();
             printableArea.style.display = 'none';
         }
-        
+
+        // Reset the form to initial state
         function resetForm() {
             // Clear all rows except the first one
             const tbody = document.querySelector('#returnsTable tbody');
             while (tbody.rows.length > 1) {
                 tbody.deleteRow(1);
             }
-            
             // Reset the first row
             const firstRow = tbody.rows[0];
             firstRow.querySelector('.customer-select').value = '';
@@ -661,11 +640,11 @@
             firstRow.querySelector('.invoice-select').innerHTML = '<option value="">Select Customer & Item</option>';
             firstRow.querySelector('.invoice-select').disabled = true;
             firstRow.querySelector('.return-date').valueAsDate = new Date();
-            
             // Hide results
             document.getElementById('results').style.display = 'none';
         }
-        
+
+        // Clear all local sales data and reset UI
         function clearAllData() {
             if (confirm('Are you sure you want to clear ALL sales data? This cannot be undone.')) {
                 localStorage.removeItem(SALES_DATA_KEY);
@@ -674,9 +653,54 @@
                 updateDataStatus(false);
                 resetForm();
                 document.getElementById('calculatorSection').style.display = 'none';
-                alert('All sales data has been cleared. Please upload a new sales report.');
+                showStatus('All sales data cleared. Please upload a new sales report.', false);
             }
         }
+
+        // Setup event listeners after DOM is loaded
+        function setupEventListeners() {
+            // File upload handling
+            document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+            // Clear data button
+            document.getElementById('clearDataBtn').addEventListener('click', clearAllData);
+            // Calculate button
+            document.getElementById('calculateBtn').addEventListener('click', calculateAllCharges);
+            // Print button
+            document.getElementById('printBtn').addEventListener('click', printReport);
+            // Reset button
+            document.getElementById('resetBtn').addEventListener('click', resetForm);
+            // Delegate events for dynamic elements
+            document.getElementById('returnsTable').addEventListener('change', function(e) {
+                if (e.target.classList.contains('customer-select') || e.target.classList.contains('item-code')) {
+                    updateInvoiceDropdown(e.target);
+                }
+            });
+            document.getElementById('returnsTable').addEventListener('click', function(e) {
+                if (e.target.classList.contains('add-row-btn')) {
+                    addNewRow();
+                }
+                if (e.target.classList.contains('remove-row-btn')) {
+                    e.target.closest('tr').remove();
+                }
+            });
+        }
+
+        // On page load: initialize default values and check storage
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set today's date as default return date
+            const firstReturnDate = document.querySelector('.return-date');
+            if (firstReturnDate) firstReturnDate.valueAsDate = new Date();
+            // Load from storage if present
+            salesData = loadSalesData();
+            if (salesData && salesData.length > 0) {
+                updateDataStatus(true);
+                populateCustomerDropdowns();
+                document.getElementById('calculatorSection').style.display = 'block';
+            } else {
+                updateDataStatus(false);
+            }
+            setupEventListeners();
+        });
     </script>
 </body>
 </html>

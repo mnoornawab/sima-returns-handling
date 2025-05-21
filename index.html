@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SIMA Eyewear Returns and Handling Charges Calculator</title>
+<title>SIMA Eyewear Returns Handling</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -42,7 +42,9 @@
     .modal-list th, .modal-list td { font-size:12px; border:1px solid #ddd; padding:3px 6px;}
     .modal-list tr { background: #f9f9f9;}
     .modal-list tr.selected { background: #d3e8fc;}
-    .modal-list tr:hover { background:#e5e5e5; cursor:pointer;}
+    .modal-list tr.disabled { color:#aaa; background: #f8eaea!important; pointer-events: none;}
+    .modal-list tr:hover:not(.disabled) { background:#e5e5e5; cursor:pointer;}
+    .modal-note { font-size:11px; color:#b02a37; margin-left:6px;}
     .modal-actions { margin-top:12px;text-align:right;}
     #rinvSection { margin-top:24px; }
     #rinvSection table { margin-top:5px; }
@@ -57,11 +59,11 @@
 </style>
 </head>
 <body>
-    <h1>SIMA Eyewear Returns and Handling Charges Calculator</h1>
+    <h1>SIMA Eyewear Returns Handling Calculator</h1>
     <div class="section">
         <h2>Sales Report Data</h2>
         <div id="dataStatus" class="data-empty">
-            Loading sales report data ...
+            Loading sales report data from GitHub...
         </div>
     </div>
 
@@ -132,6 +134,7 @@
                         <th>Date</th>
                         <th>Qty</th>
                         <th>Selling Price Exc VAT</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="invoiceModalList">
@@ -167,6 +170,7 @@ const DEFAULT_LINES = 5;
 let pendingInputRow = null;
 let modalInvoices = [];
 let modalSelectedIndex = -1;
+let modalDisabledIndexes = [];
 
 function todayStr() {
     const t = new Date();
@@ -280,17 +284,31 @@ function expandForInvoices(inputRow, styleCode, customer) {
     const rinvNumbers = invRows.filter(row =>
         /^RINV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
+
+    // Mark which invoices are already credited
+    const invCreditedMap = {};
+    rinvNumbers.forEach(rinv => {
+        const m = getVal(rinv, "INVOICE NUMBER").match(/^RINV-(\d+)/);
+        if (m) invCreditedMap[m[1]] = getVal(rinv, "INVOICE NUMBER");
+    });
+
     if (invNumbers.length === 0) {
         updateTotals();
         return;
     }
     if (invNumbers.length === 1) {
+        const invNumPart = getVal(invNumbers[0], "INVOICE NUMBER").match(/^INV-(\d+)/)?.[1];
+        if (invNumPart && invCreditedMap[invNumPart]) {
+            alert("This invoice has already been credited as " + invCreditedMap[invNumPart]);
+            return;
+        }
         insertInvoiceRow(inputRow, styleCode, invNumbers[0]);
     } else {
         modalInvoices = invNumbers;
+        modalDisabledIndexes = [];
         modalSelectedIndex = -1;
         pendingInputRow = inputRow;
-        showInvoiceModal(invNumbers, rinvNumbers);
+        showInvoiceModal(invNumbers, rinvNumbers, invCreditedMap);
     }
     updateRemoveButtons();
     updateTotals();
@@ -327,19 +345,31 @@ function insertInvoiceRow(inputRow, styleCode, inv) {
     inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
     calculateRowHandling(tr);
 }
-function showInvoiceModal(invoices, rinvs) {
+function showInvoiceModal(invoices, rinvs, invCreditedMap) {
     const modal = document.getElementById('invoiceModal');
     const list = document.getElementById('invoiceModalList');
     list.innerHTML = "";
+    modalDisabledIndexes = [];
     invoices.forEach((inv, idx) => {
+        const invNum = getVal(inv, "INVOICE NUMBER");
+        const invNumPart = invNum.match(/^INV-(\d+)/)?.[1];
+        let disabled = false, note = '';
+        if (invNumPart && invCreditedMap[invNumPart]) {
+            disabled = true;
+            note = `<span class="modal-note">Already credited: ${invCreditedMap[invNumPart]}</span>`;
+            modalDisabledIndexes.push(idx);
+        }
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${getVal(inv, "INVOICE NUMBER")}</td>
+            <td>${invNum}</td>
             <td>${getVal(inv, "Date")}</td>
             <td>${getVal(inv, "QTY")}</td>
             <td>${getVal(inv, "SELLING PRICE EXCL. VAT")}</td>
+            <td>${note}</td>
         `;
+        if (disabled) tr.classList.add('disabled');
         tr.addEventListener('click', function() {
+            if (tr.classList.contains('disabled')) return;
             [...list.children].forEach(row => row.classList.remove('selected'));
             tr.classList.add('selected');
             modalSelectedIndex = idx;
@@ -374,6 +404,7 @@ function closeInvoiceModal() {
     document.getElementById('invoiceModal').style.display = "none";
     modalInvoices = [];
     modalSelectedIndex = -1;
+    modalDisabledIndexes = [];
     pendingInputRow = null;
 }
 function calcMonthsDays(start, end) {
@@ -622,6 +653,7 @@ function setupEvents() {
     // Modal actions
     document.getElementById('invoiceModalOk').addEventListener('click', function() {
         if (modalSelectedIndex >= 0 && pendingInputRow) {
+            if (modalDisabledIndexes.includes(modalSelectedIndex)) return;
             insertInvoiceRow(pendingInputRow, pendingInputRow.querySelector('.item-code-input').value.trim(), modalInvoices[modalSelectedIndex]);
             closeInvoiceModal();
             updateRemoveButtons();

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SIMA Eyewear Returns Handling</title>
+<title>SIMA Eyewear Returns Handling Calculator</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -40,6 +40,7 @@
     .modal-content h3 { margin-top: 0; }
     .modal-list { width:100%; border-collapse:collapse;}
     .modal-list th, .modal-list td { font-size:12px; border:1px solid #ddd; padding:3px 6px;}
+    .modal-list th { background: #f4f6fa; font-weight: 700; color: #18407c;}
     .modal-list tr { background: #f9f9f9;}
     .modal-list tr.selected { background: #d3e8fc;}
     .modal-list tr.disabled { color:#aaa; background: #f8eaea!important; pointer-events: none;}
@@ -93,8 +94,7 @@
                         <th>Action</th>
                     </tr>
                 </thead>
-                <tbody id="returnsTableBody">
-                </tbody>
+                <tbody id="returnsTableBody"></tbody>
                 <tfoot>
                     <tr class="totals-row">
                         <td colspan="5" style="text-align:right;">Totals:</td>
@@ -137,8 +137,7 @@
                         <th></th>
                     </tr>
                 </thead>
-                <tbody id="invoiceModalList">
-                </tbody>
+                <tbody id="invoiceModalList"></tbody>
             </table>
             <div id="rinvSection" style="margin-top:26px;display:none">
                 <div style="margin-bottom:3px;font-weight:bold;">Return Invoices (RINV) for this style:</div>
@@ -160,19 +159,22 @@
             </div>
         </div>
     </div>
-
 <script>
+// --- CONFIG ---
 const SALES_CSV_URL = "https://media.githubusercontent.com/media/mnoornawab/sima-returns-handling/refs/heads/main/sales-reports/sales-report-latest.csv";
+const DEFAULT_LINES = 5;
+
+// --- GLOBALS ---
 let salesData = [];
 let allCustomers = [];
 let headerMap = {};
-const DEFAULT_LINES = 5;
 let pendingInputRow = null;
 let modalInvoices = [];
 let modalSelectedIndex = -1;
 let modalDisabledIndexes = [];
-let lastPopupInputRow = null;
+let currentCustomer = "";
 
+// --- UTILS ---
 function todayStr() {
     const t = new Date();
     return t.toISOString().slice(0,10);
@@ -195,10 +197,12 @@ function updateDataStatus(hasData) {
         statusElement.textContent = `Sales data loaded from GitHub. ${salesData.length} records available.`;
         statusElement.className = 'data-loaded';
     } else {
-        statusElement.textContent = 'No sales report data loaded. Please check the CSV file in the repo.';
+        statusElement.textContent = 'Loading sales report data from GitHub...';
         statusElement.className = 'data-empty';
     }
 }
+
+// --- CUSTOMER ---
 function populateCustomerDropdown() {
     const select = document.getElementById('customerSelect');
     allCustomers = [...new Set(salesData.map(row => getVal(row, "CUSTOMER")))]
@@ -212,6 +216,8 @@ function populateCustomerDropdown() {
         select.appendChild(option);
     });
 }
+
+// --- TABLE RENDERING ---
 function renderInputLines(lines = DEFAULT_LINES) {
     const tbody = document.getElementById('returnsTableBody');
     tbody.innerHTML = "";
@@ -220,153 +226,66 @@ function renderInputLines(lines = DEFAULT_LINES) {
     }
     updateTotals();
 }
-function addInputRow(seqNo) {
+function addInputRow(seqNo, prefillStyleCode = "") {
     const tbody = document.getElementById('returnsTableBody');
     const tr = document.createElement('tr');
     tr.classList.add('input-row', 'data-row');
     tr.innerHTML = `
         <td class="seq-no">${seqNo}</td>
-        <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
-        <td colspan="8"></td>
-        <td><button type="button" class="remove-row-btn danger" style="display:none;">×</button></td>
+        <td><input type="text" class="item-code-input" value="${prefillStyleCode||""}" placeholder="Enter style code" /></td>
+        <td class="invoice-number-cell"></td>
+        <td class="invoice-date-cell"></td>
+        <td class="return-date-cell"></td>
+        <td class="qty-cell"></td>
+        <td class="amount-cell"></td>
+        <td class="age-cell"></td>
+        <td class="handling-pct-cell"></td>
+        <td class="handling-charge-cell"></td>
+        <td><button type="button" class="remove-row-btn">×</button></td>
     `;
     tbody.appendChild(tr);
-}
-function addLineBtnHandler() {
-    const tbody = document.getElementById('returnsTableBody');
-    const idx = tbody.querySelectorAll('tr.input-row').length + 1;
-    addInputRow(idx);
-    updateRemoveButtons();
-    updateTotals();
 }
 function updateRemoveButtons() {
     const rows = document.querySelectorAll('tr.input-row');
     rows.forEach((row, i) => {
         const btn = row.querySelector('.remove-row-btn');
-        if (rows.length > DEFAULT_LINES) btn.style.display = '';
-        else btn.style.display = 'none';
+        btn.style.display = (rows.length > DEFAULT_LINES) ? '' : 'none';
     });
-    document.querySelectorAll('.data-row').forEach((row, i) => {
-        if (row.classList.contains('input-row')) return;
-        const btn = row.querySelector('.remove-row-btn');
-        if (btn) btn.style.display = '';
-    });
-}
-function removeRow(row) {
-    // If we're removing a selected invoice row (not an input row), and the previous row is an input row, re-open the popup
-    const prevRow = row.previousElementSibling;
-    if (
-        prevRow &&
-        prevRow.classList.contains('input-row') &&
-        !row.classList.contains('input-row')
-    ) {
-        // get values to re-open
-        const styleCode = prevRow.querySelector('.item-code-input').value.trim();
-        const customer = document.getElementById('customerSelect').value;
-        // Remove the row and then open the popup again for that input row
-        row.parentNode.removeChild(row);
-        setTimeout(function() {
-            expandForInvoices(prevRow, styleCode, customer, true);
-        }, 50);
-    } else {
-        row.parentNode.removeChild(row);
-    }
-    updateSeqNos();
-    updateRemoveButtons();
-    updateTotals();
 }
 function updateSeqNos() {
     let seq = 1;
-    document.querySelectorAll('tr.input-row').forEach(row => {
+    document.querySelectorAll('tr.data-row').forEach(row => {
         row.querySelector('.seq-no').textContent = seq++;
     });
 }
+
+// --- INVOICE MODAL ---
 function expandForInvoices(inputRow, styleCode, customer, forcePopup=false) {
-    // Remove any previously expanded data row after this inputRow (but not other input lines)
-    let next = inputRow.nextElementSibling;
-    if (next && !next.classList.contains('input-row')) {
-        next.remove();
-    }
-    if (!styleCode || !customer) {
-        updateTotals();
-        return;
-    }
-    // All sales (INV or RINV) for this customer & style
+    if (!styleCode || !customer) return;
     const invRows = salesData.filter(row =>
         getVal(row, "CUSTOMER") === customer && getVal(row, "STYLE") === styleCode
     );
-    // All original invoice numbers (INV-xxxxx)
     const invNumbers = invRows.filter(row =>
         /^INV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
-    // All return invoice numbers (RINV-\d+ or RINV-\d+-1 etc)
     const rinvNumbers = invRows.filter(row =>
         /^RINV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
-    // Mark which invoices are already credited
     const invCreditedMap = {};
     rinvNumbers.forEach(rinv => {
         const m = getVal(rinv, "INVOICE NUMBER").match(/^RINV-(\d+)/);
         if (m) invCreditedMap[m[1]] = getVal(rinv, "INVOICE NUMBER");
     });
-
-    if (invNumbers.length === 0) {
-        updateTotals();
-        return;
-    }
-    // If only one invoice and not credited, auto insert, else always show popup for clarity
-    if (invNumbers.length === 1 && !forcePopup) {
-        const invNumPart = getVal(invNumbers[0], "INVOICE NUMBER").match(/^INV-(\d+)/)?.[1];
-        if (invNumPart && invCreditedMap[invNumPart]) {
-            alert("This invoice has already been credited as " + invCreditedMap[invNumPart]);
-            return;
-        }
-        insertInvoiceRow(inputRow, styleCode, invNumbers[0]);
-    } else {
-        modalInvoices = invNumbers;
-        modalDisabledIndexes = [];
-        modalSelectedIndex = -1;
-        pendingInputRow = inputRow;
-        lastPopupInputRow = inputRow;
-        showInvoiceModal(invNumbers, rinvNumbers, invCreditedMap);
-    }
+    if (invNumbers.length === 0) return;
+    modalInvoices = invNumbers;
+    modalDisabledIndexes = [];
+    modalSelectedIndex = -1;
+    pendingInputRow = inputRow;
+    showInvoiceModal(invNumbers, rinvNumbers, invCreditedMap, styleCode);
     updateRemoveButtons();
     updateTotals();
 }
-function insertInvoiceRow(inputRow, styleCode, inv) {
-    // Remove any existing data row after this inputRow
-    let next = inputRow.nextElementSibling;
-    if (next && !next.classList.contains('input-row')) {
-        next.remove();
-    }
-    const maxQty = parseInt(getVal(inv, "QTY")) || 1;
-    const tr = document.createElement('tr');
-    tr.classList.add('data-row');
-    tr.innerHTML = `
-        <td></td>
-        <td class="readonly">${styleCode}</td>
-        <td class="readonly">${getVal(inv, "INVOICE NUMBER")}</td>
-        <td class="readonly">${getVal(inv, "Date")}</td>
-        <td>
-            <input type="date" class="return-date-input" value="${todayStr()}" required style="width:100px"/>
-        </td>
-        <td>
-            <input type="number" class="qty-input" min="1" max="${maxQty}" value="1" style="width:50px;"/>
-        </td>
-        <td class="readonly">${getVal(inv, "SELLING PRICE EXCL. VAT") || ''}</td>
-        <td class="age-cell">0 Months 0 Days</td>
-        <td class="handling-pct-cell">0%</td>
-        <td class="handling-charge-cell">R 0.00</td>
-        <td><button type="button" class="remove-row-btn danger" title="Remove this line">×</button></td>
-    `;
-    tr.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
-    tr.dataset.invoiceDate = getVal(inv, "Date");
-    tr.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
-    tr.dataset.maxqty = maxQty;
-    inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
-    calculateRowHandling(tr);
-}
-function showInvoiceModal(invoices, rinvs, invCreditedMap) {
+function showInvoiceModal(invoices, rinvs, invCreditedMap, styleCode) {
     const modal = document.getElementById('invoiceModal');
     const list = document.getElementById('invoiceModalList');
     list.innerHTML = "";
@@ -398,7 +317,6 @@ function showInvoiceModal(invoices, rinvs, invCreditedMap) {
         });
         list.appendChild(tr);
     });
-    // RINV section
     const rinvSection = document.getElementById('rinvSection');
     const rinvList = document.getElementById('rinvModalList');
     if (rinvs && rinvs.length > 0) {
@@ -428,6 +346,8 @@ function closeInvoiceModal() {
     modalDisabledIndexes = [];
     pendingInputRow = null;
 }
+
+// --- HANDLING CALC ---
 function calcMonthsDays(start, end) {
     let [d1, d2] = [start, end];
     if (/^\d{2}[\/-]\d{2}[\/-]\d{4}/.test(start)) {
@@ -451,7 +371,7 @@ function calculateRowHandling(row) {
     const invDateStr = row.dataset.invoiceDate;
     const returnDateInput = row.querySelector('.return-date-input');
     const qtyInput = row.querySelector('.qty-input');
-    if (!invDateStr || !returnDateInput.value) {
+    if (!invDateStr || !returnDateInput || !returnDateInput.value) {
         row.querySelector('.age-cell').textContent = "0 Months 0 Days";
         row.querySelector('.handling-pct-cell').textContent = "0%";
         row.querySelector('.handling-charge-cell').textContent = "R 0.00";
@@ -475,8 +395,7 @@ function calculateRowHandling(row) {
 }
 function updateTotals() {
     let totalQty = 0, totalHandling = 0;
-    document.querySelectorAll('tr.data-row').forEach(row => {
-        if (row.classList.contains('input-row')) return;
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
         if (row.style.display === "none") return;
         const qty = parseInt(row.querySelector('.qty-input')?.value || "0", 10);
         const charge = row.querySelector('.handling-charge-cell').textContent;
@@ -488,6 +407,178 @@ function updateTotals() {
     });
     document.getElementById('totalQty').textContent = totalQty;
     document.getElementById('totalHandlingCharge').textContent = "R " + totalHandling.toFixed(2);
+}
+
+// --- DATA ROW HANDLING ---
+function setInputRowToInvoice(inputRow, styleCode, inv) {
+    inputRow.classList.add('has-data');
+    inputRow.classList.remove('input-row');
+    inputRow.innerHTML = `
+        <td class="seq-no">${inputRow.rowIndex ? inputRow.rowIndex : ''}</td>
+        <td class="readonly">${styleCode}</td>
+        <td class="readonly">${getVal(inv, "INVOICE NUMBER")}</td>
+        <td class="readonly">${getVal(inv, "Date")}</td>
+        <td>
+            <input type="date" class="return-date-input" value="${todayStr()}" required style="width:100px"/>
+        </td>
+        <td>
+            <input type="number" class="qty-input" min="1" max="${parseInt(getVal(inv, "QTY"))||1}" value="1" style="width:50px;"/>
+        </td>
+        <td class="readonly">${getVal(inv, "SELLING PRICE EXCL. VAT") || ''}</td>
+        <td class="age-cell">0 Months 0 Days</td>
+        <td class="handling-pct-cell">0%</td>
+        <td class="handling-charge-cell">R 0.00</td>
+        <td><button type="button" class="remove-row-btn">×</button></td>
+    `;
+    inputRow.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
+    inputRow.dataset.invoiceDate = getVal(inv, "Date");
+    inputRow.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
+    inputRow.dataset.maxqty = parseInt(getVal(inv, "QTY")) || 1;
+    calculateRowHandling(inputRow);
+    updateTotals();
+}
+
+// --- ROW REMOVAL (and re-trigger popup) ---
+function removeRow(row) {
+    // If it was a data row, revert to input row and re-open popup if style code exists
+    let styleCode = "";
+    if (row.classList.contains('has-data')) {
+        styleCode = row.querySelector('td.readonly')?.textContent || "";
+        row.className = "input-row data-row";
+        row.innerHTML = `
+            <td class="seq-no">${row.rowIndex ? row.rowIndex : ''}</td>
+            <td><input type="text" class="item-code-input" value="${styleCode}" placeholder="Enter style code" /></td>
+            <td class="invoice-number-cell"></td>
+            <td class="invoice-date-cell"></td>
+            <td class="return-date-cell"></td>
+            <td class="qty-cell"></td>
+            <td class="amount-cell"></td>
+            <td class="age-cell"></td>
+            <td class="handling-pct-cell"></td>
+            <td class="handling-charge-cell"></td>
+            <td><button type="button" class="remove-row-btn">×</button></td>
+        `;
+        // Reopen popup immediately if customer and styleCode exist
+        if (currentCustomer && styleCode) {
+            setTimeout(() => {
+                expandForInvoices(row, styleCode, currentCustomer, true);
+            }, 10);
+        }
+        updateTotals();
+        updateRemoveButtons();
+        return;
+    }
+    // Else, it's an input row (no data yet) - just remove
+    row.parentNode.removeChild(row);
+    updateSeqNos();
+    updateRemoveButtons();
+    updateTotals();
+}
+
+// --- EVENT HANDLERS ---
+function setupEvents() {
+    document.getElementById('customerSearch').addEventListener('input', function () {
+        const searchVal = this.value.trim().toLowerCase();
+        const select = document.getElementById('customerSelect');
+        select.innerHTML = '<option value="">-- Select Customer --</option>';
+        allCustomers
+            .filter(c => c.toLowerCase().includes(searchVal))
+            .forEach(customer => {
+                const option = document.createElement('option');
+                option.value = customer;
+                option.textContent = customer;
+                select.appendChild(option);
+            });
+    });
+    document.getElementById('customerSelect').addEventListener('change', function () {
+        currentCustomer = this.value;
+        renderInputLines(DEFAULT_LINES);
+    });
+    document.getElementById('addLineBtn').addEventListener('click', function() {
+        const tbody = document.getElementById('returnsTableBody');
+        const idx = tbody.querySelectorAll('tr.input-row, tr.has-data').length + 1;
+        addInputRow(idx);
+        updateRemoveButtons();
+        updateTotals();
+    });
+    document.getElementById('returnsTableBody').addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-row-btn')) {
+            const row = e.target.closest('tr');
+            removeRow(row);
+        }
+    });
+    document.getElementById('returnsTableBody').addEventListener('change', function (e) {
+        if (e.target.classList.contains('item-code-input')) {
+            const inputRow = e.target.closest('tr.input-row');
+            const code = e.target.value.trim();
+            expandForInvoices(inputRow, code, currentCustomer);
+        }
+    });
+    document.getElementById('returnsTableBody').addEventListener('input', function (e) {
+        if (e.target.classList.contains('return-date-input') ||
+            e.target.classList.contains('qty-input')) {
+            const dataRow = e.target.closest('tr.has-data');
+            if (!dataRow) return;
+            if (e.target.classList.contains('qty-input')) {
+                const min = parseInt(e.target.min) || 1;
+                const max = parseInt(e.target.max) || 1;
+                let val = parseInt(e.target.value) || min;
+                if (val < min) val = min;
+                if (val > max) val = max;
+                e.target.value = val;
+            }
+            calculateRowHandling(dataRow);
+            updateTotals();
+        }
+    });
+    document.getElementById('calculateBtn').addEventListener('click', function() {
+        document.querySelectorAll('tr.has-data').forEach(row => calculateRowHandling(row));
+        updateTotals();
+    });
+    document.getElementById('printBtn').addEventListener('click', function () {
+        if ([...document.querySelectorAll('.return-date-input')].some(input => !input.value)) {
+            alert("Please enter a Return Date for all items before printing!");
+            return;
+        }
+        printReport();
+    });
+    document.getElementById('downloadBtn').addEventListener('click', function () {
+        if ([...document.querySelectorAll('.return-date-input')].some(input => !input.value)) {
+            alert("Please enter a Return Date for all items before downloading!");
+            return;
+        }
+        downloadPDF();
+    });
+    document.getElementById('resetBtn').addEventListener('click', resetAll);
+    document.getElementById('resetBtn2').addEventListener('click', resetAll);
+    document.getElementById('addReturnBtn').addEventListener('click', function(){
+        resetAll();
+    });
+    document.getElementById('invoiceModalOk').addEventListener('click', function() {
+        if (modalSelectedIndex >= 0 && pendingInputRow) {
+            if (modalDisabledIndexes.includes(modalSelectedIndex)) return;
+            const styleCode = pendingInputRow.querySelector('input') ? pendingInputRow.querySelector('input').value : '';
+            setInputRowToInvoice(pendingInputRow, styleCode, modalInvoices[modalSelectedIndex]);
+            closeInvoiceModal();
+            updateRemoveButtons();
+            updateTotals();
+        }
+    });
+    document.getElementById('invoiceModalCancel').addEventListener('click', function() {
+        closeInvoiceModal();
+    });
+    window.onclick = function(event) {
+        const modal = document.getElementById('invoiceModal');
+        if (event.target === modal) {
+            closeInvoiceModal();
+        }
+    }
+}
+function resetAll() {
+    renderInputLines(DEFAULT_LINES);
+    document.getElementById('customerSelect').value = "";
+    currentCustomer = "";
+    hidePostActionButtons();
 }
 function printReport() {
     const printableArea = document.getElementById('printableArea');
@@ -509,8 +600,7 @@ function printReport() {
                     <th>Handling Charge</th>
                 </tr>`;
     let seq = 1;
-    document.querySelectorAll('tr.data-row').forEach(row => {
-        if (row.classList.contains('input-row')) return;
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
         html += `<tr>
             <td>${seq++}</td>
             <td>${row.querySelector('td:nth-child(2)').textContent}</td>
@@ -550,8 +640,7 @@ function downloadPDF() {
     const headers = [["Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
     let body = [];
     let seq = 1;
-    document.querySelectorAll('tr.data-row').forEach(row => {
-        if (row.classList.contains('input-row')) return;
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
         body.push([
             seq++,
             row.querySelector('td:nth-child(2)').textContent,
@@ -592,108 +681,8 @@ function showPostActionButtons() {
 function hidePostActionButtons() {
     document.getElementById('postActionButtons').classList.add('hidden');
 }
-function resetAll() {
-    renderInputLines(DEFAULT_LINES);
-    document.getElementById('customerSelect').value = "";
-    hidePostActionButtons();
-}
-function setupEvents() {
-    document.getElementById('customerSearch').addEventListener('input', function () {
-        const searchVal = this.value.trim().toLowerCase();
-        const select = document.getElementById('customerSelect');
-        select.innerHTML = '<option value="">-- Select Customer --</option>';
-        allCustomers
-            .filter(c => c.toLowerCase().includes(searchVal))
-            .forEach(customer => {
-                const option = document.createElement('option');
-                option.value = customer;
-                option.textContent = customer;
-                select.appendChild(option);
-            });
-    });
-    document.getElementById('customerSelect').addEventListener('change', function () {
-        renderInputLines(DEFAULT_LINES);
-    });
-    document.getElementById('addLineBtn').addEventListener('click', addLineBtnHandler);
-    document.getElementById('returnsTableBody').addEventListener('click', function (e) {
-        if (e.target.classList.contains('remove-row-btn')) {
-            const row = e.target.closest('tr');
-            removeRow(row);
-        }
-    });
-    document.getElementById('returnsTableBody').addEventListener('change', function (e) {
-        if (e.target.classList.contains('item-code-input')) {
-            const inputRow = e.target.closest('tr.input-row');
-            const code = e.target.value.trim();
-            const customer = document.getElementById('customerSelect').value;
-            expandForInvoices(inputRow, code, customer);
-        }
-    });
-    document.getElementById('returnsTableBody').addEventListener('input', function (e) {
-        if (e.target.classList.contains('return-date-input') ||
-            e.target.classList.contains('qty-input')) {
-            const dataRow = e.target.closest('tr.data-row');
-            if (!dataRow || dataRow.classList.contains('input-row')) return;
-            if (e.target.classList.contains('qty-input')) {
-                const min = parseInt(e.target.min) || 1;
-                const max = parseInt(e.target.max) || 1;
-                let val = parseInt(e.target.value) || min;
-                if (val < min) val = min;
-                if (val > max) val = max;
-                e.target.value = val;
-            }
-            calculateRowHandling(dataRow);
-            updateTotals();
-        }
-    });
-    document.getElementById('calculateBtn').addEventListener('click', function () {
-        document.querySelectorAll('tr.data-row').forEach(row => {
-            if (!row.classList.contains('input-row')) calculateRowHandling(row);
-        });
-        updateTotals();
-    });
-    document.getElementById('printBtn').addEventListener('click', function () {
-        if ([...document.querySelectorAll('.return-date-input')].some(input => !input.value)) {
-            alert("Please enter a Return Date for all items before printing!");
-            return;
-        }
-        printReport();
-    });
-    document.getElementById('downloadBtn').addEventListener('click', function () {
-        if ([...document.querySelectorAll('.return-date-input')].some(input => !input.value)) {
-            alert("Please enter a Return Date for all items before downloading!");
-            return;
-        }
-        downloadPDF();
-    });
-    document.getElementById('resetBtn').addEventListener('click', resetAll);
-    document.getElementById('resetBtn2').addEventListener('click', resetAll);
-    document.getElementById('addReturnBtn').addEventListener('click', function(){
-        resetAll();
-    });
-    // Modal actions
-    document.getElementById('invoiceModalOk').addEventListener('click', function() {
-        if (modalSelectedIndex >= 0 && pendingInputRow) {
-            if (modalDisabledIndexes.includes(modalSelectedIndex)) {
-                // Disabled, do nothing
-                return;
-            }
-            insertInvoiceRow(pendingInputRow, pendingInputRow.querySelector('.item-code-input').value.trim(), modalInvoices[modalSelectedIndex]);
-            closeInvoiceModal();
-            updateRemoveButtons();
-            updateTotals();
-        }
-    });
-    document.getElementById('invoiceModalCancel').addEventListener('click', function() {
-        closeInvoiceModal();
-    });
-    window.onclick = function(event) {
-        const modal = document.getElementById('invoiceModal');
-        if (event.target === modal) {
-            closeInvoiceModal();
-        }
-    }
-}
+
+// --- INIT ---
 document.addEventListener('DOMContentLoaded', function () {
     renderInputLines(DEFAULT_LINES);
     setupEvents();
@@ -713,6 +702,7 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         error: function (error) {
             updateDataStatus(false);
+            console.error("PapaParse error:", error);
         }
     });
 });

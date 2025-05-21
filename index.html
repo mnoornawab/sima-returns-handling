@@ -8,86 +8,179 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f6f7fa; color: #333; margin: 0; padding: 0; }
-    .main-container { max-width: 1100px; margin: 36px auto 24px auto; background: #fff; border-radius: 12px; box-shadow: 0 6px 24px rgba(40,56,100,0.10); padding: 36px 30px 32px 30px; }
-    h1 { color: #1c3c6b; font-size: 2rem; font-weight: 700; letter-spacing: 0.02em; margin-bottom: 14px; }
-    .section { margin-bottom: 28px; }
-    label { display: block; margin: 12px 0 7px; font-weight: 600; letter-spacing: 0.01em; }
-    input, select, button { padding: 8px 10px; border: 1px solid #d2d6e1; border-radius: 5px; font-size: 14px; }
-    select, input[type="text"], input[type="date"], input[type="number"] { width: 100%; }
-    input:focus, select:focus { outline: 2px solid #1c3c6b22; border-color:#6a92d9;}
-    #dataStatus { margin: 15px 0 0 0; padding: 10px; border-radius: 4px; font-size: 15px;}
-    .data-loaded { background-color: #e1f7e9; color: #22663a; }
-    .data-empty { background-color: #ffeaea; color: #b02a37; }
-    table { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 18px; background: #fff;}
-    th, td { border: none; padding: 10px 7px; font-size: 13px; vertical-align: middle;}
-    th { background-color: #f2f4fa; font-weight: 700; color: #2c3c6b; border-bottom: 2px solid #e7eaf1;}
-    tr.has-data { background: #f9fbff; }
-    tr.input-row { background: #fff; }
-    tbody tr:not(.input-row):not(.has-data):nth-child(even), tr.input-row:nth-child(even) { background: #f6f7fa; }
-    tr td, tr th { border-bottom: 1px solid #e7eaf1; }
-    .readonly { background: #f6f7fa; color: #454545; }
-    .qty-input, .return-date-input { background: #f8fcff; width: 64px; }
-    .remove-row-btn { background: #f64d4d; color: #fff; border: none; border-radius: 4px; padding: 5px 13px; font-size: 17px; cursor: pointer; transition: background 0.18s;}
-    .remove-row-btn:hover { background: #b02a37; }
-    .totals-row td { font-weight: bold; background: #ecf3fe; font-size: 14px; border-top: 2px solid #d9e6fa;}
-    .hidden { display: none !important; }
-    #customerSearch { width: 100%; margin-bottom: 10px; }
-    .action-bar { display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end; margin-top: 14px;}
-    .action-bar button, .action-bar .spacer { min-width: 130px; font-size:15px; font-weight: 600; }
-    .action-bar .spacer { background: none; border:none; cursor: default;}
-    button.success { background-color: #40bb6d; }
-    button.success:hover { background-color: #238b47; }
-    button.secondary { background-color: #6c757d; }
-    button.secondary:hover { background-color: #495057; }
-    button.danger { background-color: #dc3545; }
-    button.danger:hover { background-color: #b02a37; }
-    .action-bar .blue { background: #4175e3; color: #fff; }
-    .action-bar .blue:hover { background: #345bb1; }
-    .action-bar .gray { background: #6c757d; }
-    .action-bar .gray:hover { background: #495057; }
-    .action-bar .red { background: #dc3545; }
-    .action-bar .red:hover { background: #b02a37; }
-    .no-print { margin-bottom: 0; }
-    .modal { display:none; position:fixed; z-index:99999; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.33);}
-    .modal-content { background:#fff; margin:8% auto; padding:20px; border-radius:8px; width:95%; max-width:520px; box-shadow:0 2px 10px rgba(0,0,0,0.2);}
-    .modal-content h3 { margin-top: 0; }
-    .modal-list { width:100%; border-collapse:collapse;}
-    .modal-list th, .modal-list td { font-size:13px; border:1px solid #e5eaf4; padding:7px 8px;}
-    .modal-list tr { background: #f9f9f9;}
-    .modal-list tr.selected { background: #d3e8fc;}
-    .modal-list tr.disabled { color:#aaa; background: #f8eaea!important; pointer-events: none;}
-    .modal-list tr:hover:not(.disabled) { background:#e5e5e5; cursor:pointer;}
-    .modal-note { font-size:11px; color:#b02a37; margin-left:6px;}
-    .modal-actions { margin-top:12px;text-align:right;}
-    #rinvSection { margin-top:24px; }
-    #rinvSection table { margin-top:5px; }
-    @media print {
-        .no-print { display: none !important; }
-        #printableArea, #printableArea * { visibility: visible; }
-        #printableArea { position: absolute; left: 0; top: 0; width: 100%; background: #fff; z-index: 9999;}
-    }
-    @media (max-width: 768px) {
-        .main-container { padding: 12px 2vw 18px 2vw;}
-        table, th, td { font-size: 11px; }
-        .action-bar button { min-width: 80px; }
-    }
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f7f8fa;
+    color: #28324c;
+    margin: 0;
+    padding: 0;
+}
+.main-container {
+    max-width: 1200px;
+    margin: 32px auto 24px auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(40,56,100,0.11);
+    padding: 38px 32px 32px 32px;
+}
+h1 {
+    color: #18407c;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin-bottom: 18px;
+}
+label {
+    display: block;
+    margin: 12px 0 7px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+input, select, button {
+    padding: 8px 12px;
+    border: 1px solid #d6d9e2;
+    border-radius: 5px;
+    font-size: 14px;
+}
+input[type="text"], input[type="date"], input[type="number"], select {
+    width: 100%;
+}
+input:focus, select:focus {
+    outline: 2px solid #4676d7;
+    border-color:#4676d7;
+}
+#dataStatus {
+    margin: 10px 0 0 0;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 15px;
+}
+.data-loaded {
+    background-color: #e1f6ea;
+    color: #1d5937;
+}
+.data-empty {
+    background-color: #fff4e7;
+    color: #bd342f;
+}
+table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 18px;
+    background: #fff;
+}
+th, td {
+    border: none;
+    padding: 10px 7px;
+    font-size: 13px;
+    vertical-align: middle;
+}
+th {
+    background-color: #f4f6fa;
+    font-weight: 700;
+    color: #18407c;
+    border-bottom: 2px solid #e5e8f1;
+}
+tbody tr.has-data {
+    background: #f9fbff;
+}
+tr.input-row {
+    background: #fff;
+}
+tbody tr:not(.input-row):not(.has-data):nth-child(even), tr.input-row:nth-child(even) {
+    background: #f7f8fa;
+}
+tr td, tr th {
+    border-bottom: 1px solid #e5e8f1;
+}
+.readonly {
+    background: #f7f8fa;
+    color: #454545;
+}
+.qty-input, .return-date-input {
+    background: #fafdff;
+    width: 64px;
+}
+.remove-row-btn {
+    background: #f64d4d;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 14px;
+    font-size: 17px;
+    cursor: pointer;
+    transition: background 0.18s;
+}
+.remove-row-btn:hover {
+    background: #bd342f;
+}
+.totals-row td {
+    font-weight: bold;
+    background: #eaf1fc;
+    font-size: 14px;
+    border-top: 2px solid #d6e0fa;
+}
+#customerSearch {
+    width: 100%;
+    margin-bottom: 10px;
+}
+.action-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 18px;
+}
+.action-bar button {
+    min-width: 130px;
+    font-size:15px;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(40,56,100,0.04);
+    transition: background 0.19s;
+}
+.action-bar button.success {
+    background: #3cd278;
+    color: #fff;
+}
+.action-bar button.success:hover {
+    background: #238b47;
+}
+.action-bar button.gray {
+    background: #6c757d;
+    color: #fff;
+}
+.action-bar button.gray:hover {
+    background: #495057;
+}
+.action-bar button.red {
+    background: #dc3545;
+    color: #fff;
+}
+.action-bar button.red:hover {
+    background: #b02a37;
+}
+@media (max-width: 900px) {
+    .main-container { padding: 16px 2vw 18px 2vw;}
+    table, th, td { font-size: 11px; }
+    .action-bar button { min-width: 90px; }
+}
 </style>
 </head>
 <body>
 <div class="main-container">
     <h1>SIMA Eyewear Returns Handling Calculator</h1>
-    <div class="section">
-        <label for="customerSearch">Search Customer:</label>
-        <input type="text" id="customerSearch" placeholder="Type to search..." autocomplete="off" />
+    <label for="customerSearch">Search Customer:</label>
+    <input type="text" id="customerSearch" placeholder="Type to search..." autocomplete="off" />
 
-        <label for="customerSelect" style="margin-top:10px;">Select Customer:</label>
-        <select id="customerSelect">
-            <option value="">-- Select Customer --</option>
-        </select>
-        <div id="dataStatus" class="data-empty" style="margin-top:12px;">
-            Loading sales report data from GitHub...
-        </div>
+    <label for="customerSelect" style="margin-top:10px;">Select Customer:</label>
+    <select id="customerSelect">
+        <option value="">-- Select Customer --</option>
+    </select>
+    <div id="dataStatus" class="data-empty" style="margin-top:12px;">
+        Loading sales report data from GitHub...
     </div>
 
     <div id="calculatorSection" style="display: none;">
@@ -132,7 +225,6 @@
         </div>
         <div id="printableArea" style="display: none;"></div>
     </div>
-
     <!-- Modal for invoice selection -->
     <div id="invoiceModal" class="modal no-print">
         <div class="modal-content">
@@ -166,16 +258,537 @@
             </div>
             <div class="modal-actions">
                 <button id="invoiceModalOk" class="success" disabled>Use Selected</button>
-                <button id="invoiceModalCancel" class="danger">Cancel</button>
+                <button id="invoiceModalCancel" class="red">Cancel</button>
             </div>
         </div>
     </div>
 </div>
 <script>
-// -- All JS code is the same as last working version, using only one row per entry --
-// --- omitted here for brevity ---
-// If you want the full JS again, just ask!
+const SALES_CSV_URL = "https://media.githubusercontent.com/media/mnoornawab/sima-returns-handling/refs/heads/main/sales-reports/sales-report-latest.csv";
+let salesData = [];
+let allCustomers = [];
+let headerMap = {};
+const DEFAULT_LINES = 5;
+let pendingInputRow = null;
+let modalInvoices = [];
+let modalSelectedIndex = -1;
+let modalDisabledIndexes = [];
+
+function todayStr() {
+    const t = new Date();
+    return t.toISOString().slice(0,10);
+}
+function mapHeaders(row) {
+    if (Object.keys(headerMap).length === 0) {
+        for (const key in row) {
+            const norm = key.trim().toUpperCase();
+            headerMap[norm] = key;
+        }
+    }
+}
+function getVal(row, wanted) {
+    const norm = wanted.trim().toUpperCase();
+    return row[headerMap[norm]] ? row[headerMap[norm]].trim() : "";
+}
+function updateDataStatus(hasData) {
+    const statusElement = document.getElementById('dataStatus');
+    if (hasData) {
+        statusElement.textContent = `Sales data loaded from GitHub. ${salesData.length} records available.`;
+        statusElement.className = 'data-loaded';
+    } else {
+        statusElement.textContent = 'No sales report data loaded. Please check the CSV file in the repo.';
+        statusElement.className = 'data-empty';
+    }
+}
+function populateCustomerDropdown() {
+    const select = document.getElementById('customerSelect');
+    allCustomers = [...new Set(salesData.map(row => getVal(row, "CUSTOMER")))]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, undefined, {sensitivity: 'base'}));
+    select.innerHTML = '<option value="">-- Select Customer --</option>';
+    allCustomers.forEach(customer => {
+        const option = document.createElement('option');
+        option.value = customer;
+        option.textContent = customer;
+        select.appendChild(option);
+    });
+}
+function renderInputLines(lines = DEFAULT_LINES) {
+    const tbody = document.getElementById('returnsTableBody');
+    tbody.innerHTML = "";
+    for (let i = 0; i < lines; i++) {
+        addInputRow(i + 1);
+    }
+    updateTotals();
+}
+function addInputRow(seqNo) {
+    const tbody = document.getElementById('returnsTableBody');
+    const tr = document.createElement('tr');
+    tr.classList.add('input-row', 'data-row');
+    tr.innerHTML = `
+        <td class="seq-no">${seqNo}</td>
+        <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
+        <td class="invoice-number-cell"></td>
+        <td class="invoice-date-cell"></td>
+        <td class="return-date-cell"></td>
+        <td class="qty-cell"></td>
+        <td class="amount-cell"></td>
+        <td class="age-cell"></td>
+        <td class="handling-pct-cell"></td>
+        <td class="handling-charge-cell"></td>
+        <td><button type="button" class="remove-row-btn" style="display:none;">×</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+function addLineBtnHandler() {
+    const tbody = document.getElementById('returnsTableBody');
+    const idx = tbody.querySelectorAll('tr.input-row').length + 1;
+    addInputRow(idx);
+    updateRemoveButtons();
+    updateTotals();
+}
+function updateRemoveButtons() {
+    const rows = document.querySelectorAll('tr.input-row');
+    rows.forEach((row, i) => {
+        const btn = row.querySelector('.remove-row-btn');
+        btn.style.display = (rows.length > DEFAULT_LINES) ? '' : 'none';
+    });
+}
+function removeRow(row) {
+    if (row.classList.contains('has-data')) {
+        revertToInputRow(row, row.querySelector('td.readonly')?.textContent || '');
+    } else {
+        row.parentNode.removeChild(row);
+        updateSeqNos();
+        updateRemoveButtons();
+        updateTotals();
+        return;
+    }
+}
+function updateSeqNos() {
+    let seq = 1;
+    document.querySelectorAll('tr.input-row').forEach(row => {
+        row.querySelector('.seq-no').textContent = seq++;
+    });
+}
+function expandForInvoices(inputRow, styleCode, customer, forcePopup=false) {
+    if (!styleCode || !customer) {
+        updateTotals();
+        return;
+    }
+    const invRows = salesData.filter(row =>
+        getVal(row, "CUSTOMER") === customer && getVal(row, "STYLE") === styleCode
+    );
+    const invNumbers = invRows.filter(row =>
+        /^INV-\d+/.test(getVal(row, "INVOICE NUMBER"))
+    );
+    const rinvNumbers = invRows.filter(row =>
+        /^RINV-\d+/.test(getVal(row, "INVOICE NUMBER"))
+    );
+    const invCreditedMap = {};
+    rinvNumbers.forEach(rinv => {
+        const m = getVal(rinv, "INVOICE NUMBER").match(/^RINV-(\d+)/);
+        if (m) invCreditedMap[m[1]] = getVal(rinv, "INVOICE NUMBER");
+    });
+    if (invNumbers.length === 0) {
+        updateTotals();
+        return;
+    }
+    modalInvoices = invNumbers;
+    modalDisabledIndexes = [];
+    modalSelectedIndex = -1;
+    pendingInputRow = inputRow;
+    showInvoiceModal(invNumbers, rinvNumbers, invCreditedMap, styleCode);
+    updateRemoveButtons();
+    updateTotals();
+}
+function setInputRowToInvoice(inputRow, styleCode, inv) {
+    inputRow.classList.add('has-data');
+    inputRow.innerHTML = `
+        <td class="seq-no">${inputRow.rowIndex ? inputRow.rowIndex : ''}</td>
+        <td class="readonly">${styleCode}</td>
+        <td class="readonly">${getVal(inv, "INVOICE NUMBER")}</td>
+        <td class="readonly">${getVal(inv, "Date")}</td>
+        <td>
+            <input type="date" class="return-date-input" value="${todayStr()}" required style="width:100px"/>
+        </td>
+        <td>
+            <input type="number" class="qty-input" min="1" max="${parseInt(getVal(inv, "QTY"))||1}" value="1" style="width:50px;"/>
+        </td>
+        <td class="readonly">${getVal(inv, "SELLING PRICE EXCL. VAT") || ''}</td>
+        <td class="age-cell">0 Months 0 Days</td>
+        <td class="handling-pct-cell">0%</td>
+        <td class="handling-charge-cell">R 0.00</td>
+        <td><button type="button" class="remove-row-btn">×</button></td>
+    `;
+    inputRow.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
+    inputRow.dataset.invoiceDate = getVal(inv, "Date");
+    inputRow.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
+    inputRow.dataset.maxqty = parseInt(getVal(inv, "QTY")) || 1;
+    calculateRowHandling(inputRow);
+    updateTotals();
+}
+function revertToInputRow(row, styleCode='') {
+    row.classList.remove('has-data');
+    row.innerHTML = `
+        <td class="seq-no">${row.rowIndex ? row.rowIndex : ''}</td>
+        <td><input type="text" class="item-code-input" value="${styleCode||''}" placeholder="Enter style code" /></td>
+        <td class="invoice-number-cell"></td>
+        <td class="invoice-date-cell"></td>
+        <td class="return-date-cell"></td>
+        <td class="qty-cell"></td>
+        <td class="amount-cell"></td>
+        <td class="age-cell"></td>
+        <td class="handling-pct-cell"></td>
+        <td class="handling-charge-cell"></td>
+        <td><button type="button" class="remove-row-btn"></button></td>
+    `;
+    updateRemoveButtons();
+    updateTotals();
+    setTimeout(() => {
+        expandForInvoices(row, styleCode, document.getElementById('customerSelect').value, true);
+    }, 100);
+}
+function showInvoiceModal(invoices, rinvs, invCreditedMap, styleCode) {
+    const modal = document.getElementById('invoiceModal');
+    const list = document.getElementById('invoiceModalList');
+    list.innerHTML = "";
+    modalDisabledIndexes = [];
+    invoices.forEach((inv, idx) => {
+        const invNum = getVal(inv, "INVOICE NUMBER");
+        const invNumPart = invNum.match(/^INV-(\d+)/)?.[1];
+        let disabled = false, note = '';
+        if (invNumPart && invCreditedMap[invNumPart]) {
+            disabled = true;
+            note = `<span class="modal-note">Already credited: ${invCreditedMap[invNumPart]}</span>`;
+            modalDisabledIndexes.push(idx);
+        }
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${invNum}</td>
+            <td>${getVal(inv, "Date")}</td>
+            <td>${getVal(inv, "QTY")}</td>
+            <td>${getVal(inv, "SELLING PRICE EXCL. VAT")}</td>
+            <td>${note}</td>
+        `;
+        if (disabled) tr.classList.add('disabled');
+        tr.addEventListener('click', function() {
+            if (tr.classList.contains('disabled')) return;
+            [...list.children].forEach(row => row.classList.remove('selected'));
+            tr.classList.add('selected');
+            modalSelectedIndex = idx;
+            document.getElementById('invoiceModalOk').disabled = false;
+        });
+        list.appendChild(tr);
+    });
+    const rinvSection = document.getElementById('rinvSection');
+    const rinvList = document.getElementById('rinvModalList');
+    if (rinvs && rinvs.length > 0) {
+        rinvSection.style.display = '';
+        rinvList.innerHTML = '';
+        rinvs.forEach(rinv => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${getVal(rinv, "INVOICE NUMBER")}</td>
+                <td>${getVal(rinv, "Date")}</td>
+                <td>${getVal(rinv, "QTY")}</td>
+                <td>${getVal(rinv, "SELLING PRICE EXCL. VAT")}</td>
+            `;
+            rinvList.appendChild(tr);
+        });
+    } else {
+        rinvSection.style.display = 'none';
+        rinvList.innerHTML = '';
+    }
+    document.getElementById('invoiceModalOk').disabled = true;
+    modal.style.display = "block";
+}
+function closeInvoiceModal() {
+    document.getElementById('invoiceModal').style.display = "none";
+    modalInvoices = [];
+    modalSelectedIndex = -1;
+    modalDisabledIndexes = [];
+    pendingInputRow = null;
+}
+function calcMonthsDays(start, end) {
+    let [d1, d2] = [start, end];
+    if (/^\d{2}[\/-]\d{2}[\/-]\d{4}/.test(start)) {
+        const [day, mon, yr] = start.split(/[\/-]/);
+        d1 = `${yr}-${mon}-${day}`;
+    }
+    d1 = new Date(d1);
+    d2 = new Date(end);
+    let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+    let days = d2.getDate() - d1.getDate();
+    if (days < 0) {
+        months--;
+        const prevMonth = new Date(d2.getFullYear(), d2.getMonth(), 0).getDate();
+        days += prevMonth;
+    }
+    if (months < 0) months = 0;
+    if (days < 0) days = 0;
+    return { months, days };
+}
+function calculateRowHandling(row) {
+    const invDateStr = row.dataset.invoiceDate;
+    const returnDateInput = row.querySelector('.return-date-input');
+    const qtyInput = row.querySelector('.qty-input');
+    if (!invDateStr || !returnDateInput || !returnDateInput.value) {
+        row.querySelector('.age-cell').textContent = "0 Months 0 Days";
+        row.querySelector('.handling-pct-cell').textContent = "0%";
+        row.querySelector('.handling-charge-cell').textContent = "R 0.00";
+        return;
+    }
+    const age = calcMonthsDays(invDateStr, returnDateInput.value);
+    row.querySelector('.age-cell').textContent = `${age.months} Months ${age.days} Days`;
+    let pct = 0;
+    if (age.months >= 24) pct = -1;
+    else if (age.months >= 12) pct = 50;
+    else if (age.months >= 6) pct = 12;
+    else pct = 0;
+    row.querySelector('.handling-pct-cell').textContent = (pct < 0) ? "Not accepted" : (pct + "%");
+    const originalValue = parseFloat(row.dataset.amount || 0);
+    const qty = parseInt(qtyInput.value) || 1;
+    let charge = "R 0.00";
+    if (pct > 0) charge = "R " + (originalValue * qty * pct / 100).toFixed(2);
+    else if (pct === 0) charge = "R 0.00";
+    else if (pct < 0) charge = "-";
+    row.querySelector('.handling-charge-cell').textContent = charge;
+}
+function updateTotals() {
+    let totalQty = 0, totalHandling = 0;
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
+        if (row.style.display === "none") return;
+        const qty = parseInt(row.querySelector('.qty-input')?.value || "0", 10);
+        const charge = row.querySelector('.handling-charge-cell').textContent;
+        if (!isNaN(qty)) totalQty += qty;
+        if (charge && charge.startsWith("R ")) {
+            const val = parseFloat(charge.replace("R ", ""));
+            if (!isNaN(val)) totalHandling += val;
+        }
+    });
+    document.getElementById('totalQty').textContent = totalQty;
+    document.getElementById('totalHandlingCharge').textContent = "R " + totalHandling.toFixed(2);
+}
+function printReport() {
+    const printableArea = document.getElementById('printableArea');
+    const customerName = document.getElementById('customerSelect').value || '';
+    let html = `<h1 style="font-size:16px;">SIMA Eyewear Returns Handling Report</h1>
+                <p><strong>Customer:</strong> ${customerName}</p>
+                <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                <table border="1" cellpadding="3" cellspacing="0" width="100%" style="font-size:11px;">
+                <tr>
+                    <th>Seq No</th>
+                    <th>Style Code</th>
+                    <th>Invoice Number</th>
+                    <th>Invoice Date</th>
+                    <th>Return Date</th>
+                    <th>Qty</th>
+                    <th>Amount Exc VAT</th>
+                    <th>Age (M D format)</th>
+                    <th>Handling %</th>
+                    <th>Handling Charge</th>
+                </tr>`;
+    let seq = 1;
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
+        html += `<tr>
+            <td>${seq++}</td>
+            <td>${row.querySelector('td:nth-child(2)').textContent}</td>
+            <td>${row.querySelector('td:nth-child(3)').textContent}</td>
+            <td>${row.querySelector('td:nth-child(4)').textContent}</td>
+            <td>${row.querySelector('.return-date-input')?.value || ""}</td>
+            <td>${row.querySelector('.qty-input')?.value || "1"}</td>
+            <td>${row.querySelector('td:nth-child(7)').textContent}</td>
+            <td>${row.querySelector('.age-cell').textContent}</td>
+            <td>${row.querySelector('.handling-pct-cell').textContent}</td>
+            <td>${row.querySelector('.handling-charge-cell').textContent}</td>
+        </tr>`;
+    });
+    html += `<tr class="totals-row">
+                <td colspan="5" style="text-align:right;">Totals:</td>
+                <td>${document.getElementById('totalQty').textContent}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>${document.getElementById('totalHandlingCharge').textContent}</td>
+            </tr></table>`;
+    printableArea.innerHTML = html;
+    printableArea.style.display = 'block';
+    window.print();
+    printableArea.style.display = 'none';
+    showPostActionButtons();
+}
+function downloadPDF() {
+    const doc = new window.jspdf.jsPDF({orientation: "landscape"});
+    const customerName = document.getElementById('customerSelect').value || '';
+    doc.setFontSize(12);
+    doc.text("SIMA Eyewear Returns Handling Report", 10, 13);
+    doc.setFontSize(10);
+    doc.text(`Customer: ${customerName}`, 10, 19);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 24);
+
+    const headers = [["Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
+    let body = [];
+    let seq = 1;
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
+        body.push([
+            seq++,
+            row.querySelector('td:nth-child(2)').textContent,
+            row.querySelector('td:nth-child(3)').textContent,
+            row.querySelector('td:nth-child(4)').textContent,
+            row.querySelector('.return-date-input')?.value || "",
+            row.querySelector('.qty-input')?.value || "1",
+            row.querySelector('td:nth-child(7)').textContent,
+            row.querySelector('.age-cell').textContent,
+            row.querySelector('.handling-pct-cell').textContent,
+            row.querySelector('.handling-charge-cell').textContent
+        ]);
+    });
+    body.push([
+        "", "", "", "", "Totals:",
+        document.getElementById('totalQty').textContent,
+        "", "", "",
+        document.getElementById('totalHandlingCharge').textContent
+    ]);
+    if (doc.autoTable) {
+        doc.autoTable({
+            head: headers,
+            body: body,
+            startY: 28,
+            theme: 'grid',
+            styles: { fontSize: 7, cellPadding: 1.5 },
+            headStyles: { fillColor: [229, 229, 229] },
+            tableWidth: 'auto',
+            margin: { left: 6, right: 6 }
+        });
+    }
+    doc.save("returns_handling_report.pdf");
+    showPostActionButtons();
+}
+function showPostActionButtons() {
+    document.getElementById('postActionButtons').style.display = '';
+}
+function hidePostActionButtons() {
+    document.getElementById('postActionButtons').style.display = 'none';
+}
+function resetAll() {
+    renderInputLines(DEFAULT_LINES);
+    document.getElementById('customerSelect').value = "";
+    hidePostActionButtons();
+}
+function setupEvents() {
+    document.getElementById('customerSearch').addEventListener('input', function () {
+        const searchVal = this.value.trim().toLowerCase();
+        const select = document.getElementById('customerSelect');
+        select.innerHTML = '<option value="">-- Select Customer --</option>';
+        allCustomers
+            .filter(c => c.toLowerCase().includes(searchVal))
+            .forEach(customer => {
+                const option = document.createElement('option');
+                option.value = customer;
+                option.textContent = customer;
+                select.appendChild(option);
+            });
+    });
+    document.getElementById('customerSelect').addEventListener('change', function () {
+        renderInputLines(DEFAULT_LINES);
+    });
+    document.getElementById('addLineBtn').addEventListener('click', addLineBtnHandler);
+    document.getElementById('returnsTableBody').addEventListener('click', function (e) {
+        if (e.target.classList.contains('remove-row-btn')) {
+            const row = e.target.closest('tr');
+            if (row.classList.contains('has-data')) {
+                revertToInputRow(row, row.querySelector('td.readonly')?.textContent || '');
+            } else {
+                removeRow(row);
+            }
+        }
+    });
+    document.getElementById('returnsTableBody').addEventListener('change', function (e) {
+        if (e.target.classList.contains('item-code-input')) {
+            const inputRow = e.target.closest('tr.input-row');
+            const code = e.target.value.trim();
+            const customer = document.getElementById('customerSelect').value;
+            expandForInvoices(inputRow, code, customer);
+        }
+    });
+    document.getElementById('returnsTableBody').addEventListener('input', function (e) {
+        if (e.target.classList.contains('return-date-input') ||
+            e.target.classList.contains('qty-input')) {
+            const dataRow = e.target.closest('tr.has-data');
+            if (!dataRow) return;
+            if (e.target.classList.contains('qty-input')) {
+                const min = parseInt(e.target.min) || 1;
+                const max = parseInt(e.target.max) || 1;
+                let val = parseInt(e.target.value) || min;
+                if (val < min) val = min;
+                if (val > max) val = max;
+                e.target.value = val;
+            }
+            calculateRowHandling(dataRow);
+            updateTotals();
+        }
+    });
+    document.getElementById('printBtn').addEventListener('click', function () {
+        if ([...document.querySelectorAll('.return-date-input')].some(input => !input.value)) {
+            alert("Please enter a Return Date for all items before printing!");
+            return;
+        }
+        printReport();
+    });
+    document.getElementById('downloadBtn').addEventListener('click', function () {
+        if ([...document.querySelectorAll('.return-date-input')].some(input => !input.value)) {
+            alert("Please enter a Return Date for all items before downloading!");
+            return;
+        }
+        downloadPDF();
+    });
+    document.getElementById('resetBtn').addEventListener('click', resetAll);
+    document.getElementById('resetBtn2').addEventListener('click', resetAll);
+    document.getElementById('addReturnBtn').addEventListener('click', function(){
+        resetAll();
+    });
+    document.getElementById('invoiceModalOk').addEventListener('click', function() {
+        if (modalSelectedIndex >= 0 && pendingInputRow) {
+            if (modalDisabledIndexes.includes(modalSelectedIndex)) return;
+            setInputRowToInvoice(pendingInputRow, pendingInputRow.querySelector('td input') ? pendingInputRow.querySelector('td input').value : '', modalInvoices[modalSelectedIndex]);
+            closeInvoiceModal();
+            updateRemoveButtons();
+            updateTotals();
+        }
+    });
+    document.getElementById('invoiceModalCancel').addEventListener('click', function() {
+        closeInvoiceModal();
+    });
+    window.onclick = function(event) {
+        const modal = document.getElementById('invoiceModal');
+        if (event.target === modal) {
+            closeInvoiceModal();
+        }
+    }
+}
+document.addEventListener('DOMContentLoaded', function () {
+    renderInputLines(DEFAULT_LINES);
+    setupEvents();
+    Papa.parse(SALES_CSV_URL, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function (results) {
+            if (results.data.length > 0) mapHeaders(results.data[0]);
+            const normalized = results.data.filter(row =>
+                !!getVal(row, "INVOICE NUMBER") && !!getVal(row, "CUSTOMER") && !!getVal(row, "STYLE")
+            );
+            salesData = normalized;
+            updateDataStatus(salesData.length > 0);
+            populateCustomerDropdown();
+            document.getElementById('calculatorSection').style.display = '';
+        },
+        error: function (error) {
+            updateDataStatus(false);
+        }
+    });
+});
 </script>
-<!-- For brevity: paste the latest JS from previous answers here, as the logic is unchanged except for better layout, button removal, and real-time calc. -->
 </body>
 </html>

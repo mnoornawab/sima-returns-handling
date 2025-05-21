@@ -171,7 +171,6 @@ let pendingInputRow = null;
 let modalInvoices = [];
 let modalSelectedIndex = -1;
 let modalDisabledIndexes = [];
-let lastPopupInputRow = null;
 
 function todayStr() {
     const t = new Date();
@@ -227,7 +226,14 @@ function addInputRow(seqNo) {
     tr.innerHTML = `
         <td class="seq-no">${seqNo}</td>
         <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
-        <td colspan="8"></td>
+        <td class="invoice-number-cell"></td>
+        <td class="invoice-date-cell"></td>
+        <td class="return-date-cell"></td>
+        <td class="qty-cell"></td>
+        <td class="amount-cell"></td>
+        <td class="age-cell"></td>
+        <td class="handling-pct-cell"></td>
+        <td class="handling-charge-cell"></td>
         <td><button type="button" class="remove-row-btn danger" style="display:none;">×</button></td>
     `;
     tbody.appendChild(tr);
@@ -243,37 +249,50 @@ function updateRemoveButtons() {
     const rows = document.querySelectorAll('tr.input-row');
     rows.forEach((row, i) => {
         const btn = row.querySelector('.remove-row-btn');
-        if (rows.length > DEFAULT_LINES) btn.style.display = '';
-        else btn.style.display = 'none';
-    });
-    document.querySelectorAll('.data-row').forEach((row, i) => {
-        if (row.classList.contains('input-row')) return;
-        const btn = row.querySelector('.remove-row-btn');
-        if (btn) btn.style.display = '';
+        btn.style.display = (rows.length > DEFAULT_LINES) ? '' : 'none';
     });
 }
 function removeRow(row) {
-    // If we're removing a selected invoice row (not an input row), and the previous row is an input row, re-open the popup
-    const prevRow = row.previousElementSibling;
-    if (
-        prevRow &&
-        prevRow.classList.contains('input-row') &&
-        !row.classList.contains('input-row')
-    ) {
-        // get values to re-open
-        const styleCode = prevRow.querySelector('.item-code-input').value.trim();
-        const customer = document.getElementById('customerSelect').value;
-        // Remove the row and then open the popup again for that input row
-        row.parentNode.removeChild(row);
-        setTimeout(function() {
-            expandForInvoices(prevRow, styleCode, customer, true);
-        }, 50);
+    // If row is a "data" row (not input), revert to input row and open popup again
+    if (!row.classList.contains('input-row')) return;
+    const styleInput = row.querySelector('.item-code-input');
+    let styleCode = '';
+    if (!styleInput) {
+        // It was a data row, so revert to input row
+        const seq = row.querySelector('.seq-no').textContent;
+        const trow = document.createElement('tr');
+        trow.classList.add('input-row', 'data-row');
+        trow.innerHTML = `
+            <td class="seq-no">${seq}</td>
+            <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
+            <td class="invoice-number-cell"></td>
+            <td class="invoice-date-cell"></td>
+            <td class="return-date-cell"></td>
+            <td class="qty-cell"></td>
+            <td class="amount-cell"></td>
+            <td class="age-cell"></td>
+            <td class="handling-pct-cell"></td>
+            <td class="handling-charge-cell"></td>
+            <td><button type="button" class="remove-row-btn danger" style="display:;"></button></td>
+        `;
+        row.parentNode.replaceChild(trow, row);
+        updateRemoveButtons();
+        updateTotals();
     } else {
+        // User removed the input row, just remove it
         row.parentNode.removeChild(row);
+        updateSeqNos();
+        updateRemoveButtons();
+        updateTotals();
+        return;
     }
-    updateSeqNos();
-    updateRemoveButtons();
-    updateTotals();
+    // Now, if we just reverted to input row, open popup again if a style code exists
+    const newInput = row.parentNode.querySelector(`tr.input-row:nth-child(${row.rowIndex}) .item-code-input`);
+    if (newInput && newInput.value.trim()) {
+        setTimeout(() => {
+            expandForInvoices(row.parentNode.querySelector(`tr.input-row:nth-child(${row.rowIndex})`), newInput.value.trim(), document.getElementById('customerSelect').value, true);
+        }, 50);
+    }
 }
 function updateSeqNos() {
     let seq = 1;
@@ -282,11 +301,6 @@ function updateSeqNos() {
     });
 }
 function expandForInvoices(inputRow, styleCode, customer, forcePopup=false) {
-    // Remove any previously expanded data row after this inputRow (but not other input lines)
-    let next = inputRow.nextElementSibling;
-    if (next && !next.classList.contains('input-row')) {
-        next.remove();
-    }
     if (!styleCode || !customer) {
         updateTotals();
         return;
@@ -314,36 +328,19 @@ function expandForInvoices(inputRow, styleCode, customer, forcePopup=false) {
         updateTotals();
         return;
     }
-    // If only one invoice and not credited, auto insert, else always show popup for clarity
-    if (invNumbers.length === 1 && !forcePopup) {
-        const invNumPart = getVal(invNumbers[0], "INVOICE NUMBER").match(/^INV-(\d+)/)?.[1];
-        if (invNumPart && invCreditedMap[invNumPart]) {
-            alert("This invoice has already been credited as " + invCreditedMap[invNumPart]);
-            return;
-        }
-        insertInvoiceRow(inputRow, styleCode, invNumbers[0]);
-    } else {
-        modalInvoices = invNumbers;
-        modalDisabledIndexes = [];
-        modalSelectedIndex = -1;
-        pendingInputRow = inputRow;
-        lastPopupInputRow = inputRow;
-        showInvoiceModal(invNumbers, rinvNumbers, invCreditedMap);
-    }
+    // Always show popup for clarity
+    modalInvoices = invNumbers;
+    modalDisabledIndexes = [];
+    modalSelectedIndex = -1;
+    pendingInputRow = inputRow;
+    showInvoiceModal(invNumbers, rinvNumbers, invCreditedMap, styleCode);
     updateRemoveButtons();
     updateTotals();
 }
-function insertInvoiceRow(inputRow, styleCode, inv) {
-    // Remove any existing data row after this inputRow
-    let next = inputRow.nextElementSibling;
-    if (next && !next.classList.contains('input-row')) {
-        next.remove();
-    }
-    const maxQty = parseInt(getVal(inv, "QTY")) || 1;
-    const tr = document.createElement('tr');
-    tr.classList.add('data-row');
-    tr.innerHTML = `
-        <td></td>
+function setInputRowToInvoice(inputRow, styleCode, inv) {
+    inputRow.classList.add('has-data');
+    inputRow.innerHTML = `
+        <td class="seq-no">${inputRow.rowIndex ? inputRow.rowIndex : ''}</td>
         <td class="readonly">${styleCode}</td>
         <td class="readonly">${getVal(inv, "INVOICE NUMBER")}</td>
         <td class="readonly">${getVal(inv, "Date")}</td>
@@ -351,22 +348,43 @@ function insertInvoiceRow(inputRow, styleCode, inv) {
             <input type="date" class="return-date-input" value="${todayStr()}" required style="width:100px"/>
         </td>
         <td>
-            <input type="number" class="qty-input" min="1" max="${maxQty}" value="1" style="width:50px;"/>
+            <input type="number" class="qty-input" min="1" max="${parseInt(getVal(inv, "QTY"))||1}" value="1" style="width:50px;"/>
         </td>
         <td class="readonly">${getVal(inv, "SELLING PRICE EXCL. VAT") || ''}</td>
         <td class="age-cell">0 Months 0 Days</td>
         <td class="handling-pct-cell">0%</td>
         <td class="handling-charge-cell">R 0.00</td>
-        <td><button type="button" class="remove-row-btn danger" title="Remove this line">×</button></td>
+        <td><button type="button" class="remove-row-btn danger">×</button></td>
     `;
-    tr.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
-    tr.dataset.invoiceDate = getVal(inv, "Date");
-    tr.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
-    tr.dataset.maxqty = maxQty;
-    inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
-    calculateRowHandling(tr);
+    inputRow.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
+    inputRow.dataset.invoiceDate = getVal(inv, "Date");
+    inputRow.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
+    inputRow.dataset.maxqty = parseInt(getVal(inv, "QTY")) || 1;
+    calculateRowHandling(inputRow);
+    updateTotals();
 }
-function showInvoiceModal(invoices, rinvs, invCreditedMap) {
+function revertToInputRow(row, styleCode='') {
+    row.classList.remove('has-data');
+    row.innerHTML = `
+        <td class="seq-no">${row.rowIndex ? row.rowIndex : ''}</td>
+        <td><input type="text" class="item-code-input" value="${styleCode||''}" placeholder="Enter style code" /></td>
+        <td class="invoice-number-cell"></td>
+        <td class="invoice-date-cell"></td>
+        <td class="return-date-cell"></td>
+        <td class="qty-cell"></td>
+        <td class="amount-cell"></td>
+        <td class="age-cell"></td>
+        <td class="handling-pct-cell"></td>
+        <td class="handling-charge-cell"></td>
+        <td><button type="button" class="remove-row-btn danger" style="display:;"></button></td>
+    `;
+    updateRemoveButtons();
+    updateTotals();
+    setTimeout(() => {
+        expandForInvoices(row, styleCode, document.getElementById('customerSelect').value, true);
+    }, 100);
+}
+function showInvoiceModal(invoices, rinvs, invCreditedMap, styleCode) {
     const modal = document.getElementById('invoiceModal');
     const list = document.getElementById('invoiceModalList');
     list.innerHTML = "";
@@ -451,7 +469,7 @@ function calculateRowHandling(row) {
     const invDateStr = row.dataset.invoiceDate;
     const returnDateInput = row.querySelector('.return-date-input');
     const qtyInput = row.querySelector('.qty-input');
-    if (!invDateStr || !returnDateInput.value) {
+    if (!invDateStr || !returnDateInput || !returnDateInput.value) {
         row.querySelector('.age-cell').textContent = "0 Months 0 Days";
         row.querySelector('.handling-pct-cell').textContent = "0%";
         row.querySelector('.handling-charge-cell').textContent = "R 0.00";
@@ -475,8 +493,7 @@ function calculateRowHandling(row) {
 }
 function updateTotals() {
     let totalQty = 0, totalHandling = 0;
-    document.querySelectorAll('tr.data-row').forEach(row => {
-        if (row.classList.contains('input-row')) return;
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
         if (row.style.display === "none") return;
         const qty = parseInt(row.querySelector('.qty-input')?.value || "0", 10);
         const charge = row.querySelector('.handling-charge-cell').textContent;
@@ -509,8 +526,7 @@ function printReport() {
                     <th>Handling Charge</th>
                 </tr>`;
     let seq = 1;
-    document.querySelectorAll('tr.data-row').forEach(row => {
-        if (row.classList.contains('input-row')) return;
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
         html += `<tr>
             <td>${seq++}</td>
             <td>${row.querySelector('td:nth-child(2)').textContent}</td>
@@ -550,8 +566,7 @@ function downloadPDF() {
     const headers = [["Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
     let body = [];
     let seq = 1;
-    document.querySelectorAll('tr.data-row').forEach(row => {
-        if (row.classList.contains('input-row')) return;
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
         body.push([
             seq++,
             row.querySelector('td:nth-child(2)').textContent,
@@ -618,7 +633,11 @@ function setupEvents() {
     document.getElementById('returnsTableBody').addEventListener('click', function (e) {
         if (e.target.classList.contains('remove-row-btn')) {
             const row = e.target.closest('tr');
-            removeRow(row);
+            if (row.classList.contains('has-data')) {
+                revertToInputRow(row, row.querySelector('td.readonly')?.textContent || '');
+            } else {
+                removeRow(row);
+            }
         }
     });
     document.getElementById('returnsTableBody').addEventListener('change', function (e) {
@@ -632,8 +651,8 @@ function setupEvents() {
     document.getElementById('returnsTableBody').addEventListener('input', function (e) {
         if (e.target.classList.contains('return-date-input') ||
             e.target.classList.contains('qty-input')) {
-            const dataRow = e.target.closest('tr.data-row');
-            if (!dataRow || dataRow.classList.contains('input-row')) return;
+            const dataRow = e.target.closest('tr.has-data');
+            if (!dataRow) return;
             if (e.target.classList.contains('qty-input')) {
                 const min = parseInt(e.target.min) || 1;
                 const max = parseInt(e.target.max) || 1;
@@ -647,8 +666,8 @@ function setupEvents() {
         }
     });
     document.getElementById('calculateBtn').addEventListener('click', function () {
-        document.querySelectorAll('tr.data-row').forEach(row => {
-            if (!row.classList.contains('input-row')) calculateRowHandling(row);
+        document.querySelectorAll('tr.data-row.has-data').forEach(row => {
+            calculateRowHandling(row);
         });
         updateTotals();
     });
@@ -674,11 +693,8 @@ function setupEvents() {
     // Modal actions
     document.getElementById('invoiceModalOk').addEventListener('click', function() {
         if (modalSelectedIndex >= 0 && pendingInputRow) {
-            if (modalDisabledIndexes.includes(modalSelectedIndex)) {
-                // Disabled, do nothing
-                return;
-            }
-            insertInvoiceRow(pendingInputRow, pendingInputRow.querySelector('.item-code-input').value.trim(), modalInvoices[modalSelectedIndex]);
+            if (modalDisabledIndexes.includes(modalSelectedIndex)) return;
+            setInputRowToInvoice(pendingInputRow, pendingInputRow.querySelector('td input') ? pendingInputRow.querySelector('td input').value : '', modalInvoices[modalSelectedIndex]);
             closeInvoiceModal();
             updateRemoveButtons();
             updateTotals();

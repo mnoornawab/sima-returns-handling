@@ -8,223 +8,120 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #f7f8fa;
-    color: #28324c;
-    margin: 0;
-    padding: 0;
-}
-.main-container {
-    max-width: 1200px;
-    margin: 32px auto 24px auto;
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(40,56,100,0.11);
-    padding: 38px 32px 32px 32px;
-}
-h1 {
-    color: #18407c;
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    margin-bottom: 18px;
-}
-label {
-    display: block;
-    margin: 12px 0 7px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-}
-input, select, button {
-    padding: 8px 12px;
-    border: 1px solid #d6d9e2;
-    border-radius: 5px;
-    font-size: 14px;
-}
-input[type="text"], input[type="date"], input[type="number"], select {
-    width: 100%;
-}
-input:focus, select:focus {
-    outline: 2px solid #4676d7;
-    border-color:#4676d7;
-}
-#dataStatus {
-    margin: 10px 0 0 0;
-    padding: 10px;
-    border-radius: 5px;
-    font-size: 15px;
-}
-.data-loaded {
-    background-color: #e1f6ea;
-    color: #1d5937;
-}
-.data-empty {
-    background-color: #fff4e7;
-    color: #bd342f;
-}
-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    margin-top: 18px;
-    background: #fff;
-}
-th, td {
-    border: none;
-    padding: 10px 7px;
-    font-size: 13px;
-    vertical-align: middle;
-}
-th {
-    background-color: #f4f6fa;
-    font-weight: 700;
-    color: #18407c;
-    border-bottom: 2px solid #e5e8f1;
-}
-tbody tr.has-data {
-    background: #f9fbff;
-}
-tr.input-row {
-    background: #fff;
-}
-tbody tr:not(.input-row):not(.has-data):nth-child(even), tr.input-row:nth-child(even) {
-    background: #f7f8fa;
-}
-tr td, tr th {
-    border-bottom: 1px solid #e5e8f1;
-}
-.readonly {
-    background: #f7f8fa;
-    color: #454545;
-}
-.qty-input, .return-date-input {
-    background: #fafdff;
-    width: 64px;
-}
-.remove-row-btn {
-    background: #f64d4d;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    padding: 5px 14px;
-    font-size: 17px;
-    cursor: pointer;
-    transition: background 0.18s;
-}
-.remove-row-btn:hover {
-    background: #bd342f;
-}
-.totals-row td {
-    font-weight: bold;
-    background: #eaf1fc;
-    font-size: 14px;
-    border-top: 2px solid #d6e0fa;
-}
-#customerSearch {
-    width: 100%;
-    margin-bottom: 10px;
-}
-.action-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    justify-content: flex-end;
-    margin-top: 18px;
-}
-.action-bar button {
-    min-width: 130px;
-    font-size:15px;
-    font-weight: 600;
-    border: none;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(40,56,100,0.04);
-    transition: background 0.19s;
-}
-.action-bar button.success {
-    background: #3cd278;
-    color: #fff;
-}
-.action-bar button.success:hover {
-    background: #238b47;
-}
-.action-bar button.gray {
-    background: #6c757d;
-    color: #fff;
-}
-.action-bar button.gray:hover {
-    background: #495057;
-}
-.action-bar button.red {
-    background: #dc3545;
-    color: #fff;
-}
-.action-bar button.red:hover {
-    background: #b02a37;
-}
-@media (max-width: 900px) {
-    .main-container { padding: 16px 2vw 18px 2vw;}
-    table, th, td { font-size: 11px; }
-    .action-bar button { min-width: 90px; }
-}
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; color: #333; }
+    h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+    .section { background: #f9f9f9; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);}
+    label { display: block; margin: 10px 0 5px; font-weight: bold; }
+    input, select, button { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+    button { background-color: #3498db; color: white; border: none; cursor: pointer; margin-top: 10px; transition: background-color 0.3s; padding: 8px 12px;}
+    button:hover { background-color: #2980b9; }
+    button.secondary { background-color: #6c757d; }
+    button.danger { background-color: #dc3545; }
+    button.success { background-color: #28a745; }
+    #dataStatus { margin: 15px 0; padding: 10px; border-radius: 4px; }
+    .data-loaded { background-color: #d4edda; color: #155724; }
+    .data-empty { background-color: #f8d7da; color: #721c24; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0;}
+    th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; vertical-align: middle; font-size: 12px;}
+    th { background-color: #e5e5e5; }
+    tr.data-row { background: #fff; }
+    tr.data-row:nth-child(even) { background: #f8fafe; }
+    .readonly { background: #f3f3f3; }
+    .qty-input, .return-date-input { background: #f8fcff; width: 60px; }
+    .remove-row-btn { background: #dc3545; color: #fff; border: none; border-radius: 4px; padding: 3px 10px; font-size: 15px; cursor: pointer;}
+    .remove-row-btn:hover { background: #b02a37; }
+    .totals-row { font-weight: bold; background: #d3e8fc; }
+    .hidden { display: none !important; }
+    #customerSearch { width: 100%; margin-bottom: 10px; }
+    .action-buttons button { margin-right: 8px; }
+    /* Modal styles */
+    .modal { display:none; position:fixed; z-index:99999; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.33);}
+    .modal-content { background:#fff; margin:8% auto; padding:20px; border-radius:8px; width:95%; max-width:520px; box-shadow:0 2px 10px rgba(0,0,0,0.2);}
+    .modal-content h3 { margin-top: 0; }
+    .modal-list { width:100%; border-collapse:collapse;}
+    .modal-list th, .modal-list td { font-size:12px; border:1px solid #ddd; padding:3px 6px;}
+    .modal-list tr { background: #f9f9f9;}
+    .modal-list tr.selected { background: #d3e8fc;}
+    .modal-list tr.disabled { color:#aaa; background: #f8eaea!important; pointer-events: none;}
+    .modal-list tr:hover:not(.disabled) { background:#e5e5e5; cursor:pointer;}
+    .modal-note { font-size:11px; color:#b02a37; margin-left:6px;}
+    .modal-actions { margin-top:12px;text-align:right;}
+    #rinvSection { margin-top:24px; }
+    #rinvSection table { margin-top:5px; }
+    @media print {
+        .no-print { display: none !important; }
+        #printableArea, #printableArea * { visibility: visible; }
+        #printableArea { position: absolute; left: 0; top: 0; width: 100%; background: #fff; z-index: 9999;}
+    }
+    @media (max-width: 768px) {
+        table, th, td { font-size: 11px; }
+    }
 </style>
 </head>
 <body>
-<div class="main-container">
     <h1>SIMA Eyewear Returns Handling Calculator</h1>
-    <label for="customerSearch">Search Customer:</label>
-    <input type="text" id="customerSearch" placeholder="Type to search..." autocomplete="off" />
-
-    <label for="customerSelect" style="margin-top:10px;">Select Customer:</label>
-    <select id="customerSelect">
-        <option value="">-- Select Customer --</option>
-    </select>
-    <div id="dataStatus" class="data-empty" style="margin-top:12px;">
-        Loading sales report data from GitHub...
+    <div class="section">
+        <h2>Sales Report Data</h2>
+        <div id="dataStatus" class="data-empty">
+            Loading sales report data from GitHub...
+        </div>
     </div>
 
-    <div id="calculatorSection" style="display: none;">
-        <table id="returnsTable">
-            <thead>
-                <tr>
-                    <th>Seq No</th>
-                    <th>Style Code</th>
-                    <th>Invoice Number</th>
-                    <th>Invoice Date</th>
-                    <th>Return Date <span title="Select the actual return date">🛈</span></th>
-                    <th>Qty</th>
-                    <th>Amount Exc VAT</th>
-                    <th>Age (M D format)</th>
-                    <th>Handling %</th>
-                    <th>Handling Charge</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="returnsTableBody"></tbody>
-            <tfoot>
-                <tr class="totals-row">
-                    <td colspan="5" style="text-align:right;">Totals:</td>
-                    <td id="totalQty">0</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td id="totalHandlingCharge">R 0.00</td>
-                    <td></td>
-                </tr>
-            </tfoot>
-        </table>
-        <div class="action-bar no-print">
-            <button id="addLineBtn" class="success">+ Add Line</button>
-            <button id="printBtn" class="gray">Print Report</button>
-            <button id="downloadBtn" class="gray">Download as PDF</button>
-            <button id="resetBtn" class="red">Clear Form</button>
+    <div class="section" id="calculatorSection" style="display: none;">
+        <label for="customerSearch">Search Customer:</label>
+        <input type="text" id="customerSearch" placeholder="Type to search..." autocomplete="off" />
+
+        <label for="customerSelect" style="margin-top:10px;">Select Customer:</label>
+        <select id="customerSelect">
+            <option value="">-- Select Customer --</option>
+        </select>
+
+        <div style="margin-top:18px;">
+            <table id="returnsTable">
+                <thead>
+                    <tr>
+                        <th>Seq No</th>
+                        <th>Style Code</th>
+                        <th>Invoice Number</th>
+                        <th>Invoice Date</th>
+                        <th>Return Date <span title="Select the actual return date">🛈</span></th>
+                        <th>Qty</th>
+                        <th>Amount Exc VAT</th>
+                        <th>Age (M D format)</th>
+                        <th>Handling %</th>
+                        <th>Handling Charge</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="returnsTableBody">
+                </tbody>
+                <tfoot>
+                    <tr class="totals-row">
+                        <td colspan="5" style="text-align:right;">Totals:</td>
+                        <td id="totalQty">0</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td id="totalHandlingCharge">R 0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+            <button id="addLineBtn" type="button" class="success">+ Add Line</button>
         </div>
-        <div class="action-bar no-print" id="postActionButtons" style="display:none;">
+        <div class="action-buttons no-print">
+            <button id="calculateBtn">Calculate Handling Charges</button>
+            <button id="printBtn" class="secondary">Print Report</button>
+            <button id="downloadBtn" class="secondary">Download as PDF</button>
+            <button id="resetBtn" class="danger">Clear Form</button>
+        </div>
+        <div id="postActionButtons" class="action-buttons no-print hidden">
             <button id="addReturnBtn" class="success">Add Another Return</button>
-            <button id="resetBtn2" class="red">Clear Form</button>
+            <button id="resetBtn2" class="danger">Clear Form</button>
         </div>
         <div id="printableArea" style="display: none;"></div>
     </div>
+
     <!-- Modal for invoice selection -->
     <div id="invoiceModal" class="modal no-print">
         <div class="modal-content">
@@ -240,7 +137,8 @@ tr td, tr th {
                         <th></th>
                     </tr>
                 </thead>
-                <tbody id="invoiceModalList"></tbody>
+                <tbody id="invoiceModalList">
+                </tbody>
             </table>
             <div id="rinvSection" style="margin-top:26px;display:none">
                 <div style="margin-bottom:3px;font-weight:bold;">Return Invoices (RINV) for this style:</div>
@@ -258,11 +156,11 @@ tr td, tr th {
             </div>
             <div class="modal-actions">
                 <button id="invoiceModalOk" class="success" disabled>Use Selected</button>
-                <button id="invoiceModalCancel" class="red">Cancel</button>
+                <button id="invoiceModalCancel" class="danger">Cancel</button>
             </div>
         </div>
     </div>
-</div>
+
 <script>
 const SALES_CSV_URL = "https://media.githubusercontent.com/media/mnoornawab/sima-returns-handling/refs/heads/main/sales-reports/sales-report-latest.csv";
 let salesData = [];
@@ -273,6 +171,7 @@ let pendingInputRow = null;
 let modalInvoices = [];
 let modalSelectedIndex = -1;
 let modalDisabledIndexes = [];
+let lastPopupInputRow = null;
 
 function todayStr() {
     const t = new Date();
@@ -328,15 +227,8 @@ function addInputRow(seqNo) {
     tr.innerHTML = `
         <td class="seq-no">${seqNo}</td>
         <td><input type="text" class="item-code-input" placeholder="Enter style code" /></td>
-        <td class="invoice-number-cell"></td>
-        <td class="invoice-date-cell"></td>
-        <td class="return-date-cell"></td>
-        <td class="qty-cell"></td>
-        <td class="amount-cell"></td>
-        <td class="age-cell"></td>
-        <td class="handling-pct-cell"></td>
-        <td class="handling-charge-cell"></td>
-        <td><button type="button" class="remove-row-btn" style="display:none;">×</button></td>
+        <td colspan="8"></td>
+        <td><button type="button" class="remove-row-btn danger" style="display:none;">×</button></td>
     `;
     tbody.appendChild(tr);
 }
@@ -351,19 +243,37 @@ function updateRemoveButtons() {
     const rows = document.querySelectorAll('tr.input-row');
     rows.forEach((row, i) => {
         const btn = row.querySelector('.remove-row-btn');
-        btn.style.display = (rows.length > DEFAULT_LINES) ? '' : 'none';
+        if (rows.length > DEFAULT_LINES) btn.style.display = '';
+        else btn.style.display = 'none';
+    });
+    document.querySelectorAll('.data-row').forEach((row, i) => {
+        if (row.classList.contains('input-row')) return;
+        const btn = row.querySelector('.remove-row-btn');
+        if (btn) btn.style.display = '';
     });
 }
 function removeRow(row) {
-    if (row.classList.contains('has-data')) {
-        revertToInputRow(row, row.querySelector('td.readonly')?.textContent || '');
+    // If we're removing a selected invoice row (not an input row), and the previous row is an input row, re-open the popup
+    const prevRow = row.previousElementSibling;
+    if (
+        prevRow &&
+        prevRow.classList.contains('input-row') &&
+        !row.classList.contains('input-row')
+    ) {
+        // get values to re-open
+        const styleCode = prevRow.querySelector('.item-code-input').value.trim();
+        const customer = document.getElementById('customerSelect').value;
+        // Remove the row and then open the popup again for that input row
+        row.parentNode.removeChild(row);
+        setTimeout(function() {
+            expandForInvoices(prevRow, styleCode, customer, true);
+        }, 50);
     } else {
         row.parentNode.removeChild(row);
-        updateSeqNos();
-        updateRemoveButtons();
-        updateTotals();
-        return;
     }
+    updateSeqNos();
+    updateRemoveButtons();
+    updateTotals();
 }
 function updateSeqNos() {
     let seq = 1;
@@ -372,40 +282,68 @@ function updateSeqNos() {
     });
 }
 function expandForInvoices(inputRow, styleCode, customer, forcePopup=false) {
+    // Remove any previously expanded data row after this inputRow (but not other input lines)
+    let next = inputRow.nextElementSibling;
+    if (next && !next.classList.contains('input-row')) {
+        next.remove();
+    }
     if (!styleCode || !customer) {
         updateTotals();
         return;
     }
+    // All sales (INV or RINV) for this customer & style
     const invRows = salesData.filter(row =>
         getVal(row, "CUSTOMER") === customer && getVal(row, "STYLE") === styleCode
     );
+    // All original invoice numbers (INV-xxxxx)
     const invNumbers = invRows.filter(row =>
         /^INV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
+    // All return invoice numbers (RINV-\d+ or RINV-\d+-1 etc)
     const rinvNumbers = invRows.filter(row =>
         /^RINV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
+    // Mark which invoices are already credited
     const invCreditedMap = {};
     rinvNumbers.forEach(rinv => {
         const m = getVal(rinv, "INVOICE NUMBER").match(/^RINV-(\d+)/);
         if (m) invCreditedMap[m[1]] = getVal(rinv, "INVOICE NUMBER");
     });
+
     if (invNumbers.length === 0) {
         updateTotals();
         return;
     }
-    modalInvoices = invNumbers;
-    modalDisabledIndexes = [];
-    modalSelectedIndex = -1;
-    pendingInputRow = inputRow;
-    showInvoiceModal(invNumbers, rinvNumbers, invCreditedMap, styleCode);
+    // If only one invoice and not credited, auto insert, else always show popup for clarity
+    if (invNumbers.length === 1 && !forcePopup) {
+        const invNumPart = getVal(invNumbers[0], "INVOICE NUMBER").match(/^INV-(\d+)/)?.[1];
+        if (invNumPart && invCreditedMap[invNumPart]) {
+            alert("This invoice has already been credited as " + invCreditedMap[invNumPart]);
+            return;
+        }
+        insertInvoiceRow(inputRow, styleCode, invNumbers[0]);
+    } else {
+        modalInvoices = invNumbers;
+        modalDisabledIndexes = [];
+        modalSelectedIndex = -1;
+        pendingInputRow = inputRow;
+        lastPopupInputRow = inputRow;
+        showInvoiceModal(invNumbers, rinvNumbers, invCreditedMap);
+    }
     updateRemoveButtons();
     updateTotals();
 }
-function setInputRowToInvoice(inputRow, styleCode, inv) {
-    inputRow.classList.add('has-data');
-    inputRow.innerHTML = `
-        <td class="seq-no">${inputRow.rowIndex ? inputRow.rowIndex : ''}</td>
+function insertInvoiceRow(inputRow, styleCode, inv) {
+    // Remove any existing data row after this inputRow
+    let next = inputRow.nextElementSibling;
+    if (next && !next.classList.contains('input-row')) {
+        next.remove();
+    }
+    const maxQty = parseInt(getVal(inv, "QTY")) || 1;
+    const tr = document.createElement('tr');
+    tr.classList.add('data-row');
+    tr.innerHTML = `
+        <td></td>
         <td class="readonly">${styleCode}</td>
         <td class="readonly">${getVal(inv, "INVOICE NUMBER")}</td>
         <td class="readonly">${getVal(inv, "Date")}</td>
@@ -413,43 +351,22 @@ function setInputRowToInvoice(inputRow, styleCode, inv) {
             <input type="date" class="return-date-input" value="${todayStr()}" required style="width:100px"/>
         </td>
         <td>
-            <input type="number" class="qty-input" min="1" max="${parseInt(getVal(inv, "QTY"))||1}" value="1" style="width:50px;"/>
+            <input type="number" class="qty-input" min="1" max="${maxQty}" value="1" style="width:50px;"/>
         </td>
         <td class="readonly">${getVal(inv, "SELLING PRICE EXCL. VAT") || ''}</td>
         <td class="age-cell">0 Months 0 Days</td>
         <td class="handling-pct-cell">0%</td>
         <td class="handling-charge-cell">R 0.00</td>
-        <td><button type="button" class="remove-row-btn">×</button></td>
+        <td><button type="button" class="remove-row-btn danger" title="Remove this line">×</button></td>
     `;
-    inputRow.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
-    inputRow.dataset.invoiceDate = getVal(inv, "Date");
-    inputRow.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
-    inputRow.dataset.maxqty = parseInt(getVal(inv, "QTY")) || 1;
-    calculateRowHandling(inputRow);
-    updateTotals();
+    tr.dataset.invoiceNumber = getVal(inv, "INVOICE NUMBER");
+    tr.dataset.invoiceDate = getVal(inv, "Date");
+    tr.dataset.amount = getVal(inv, "SELLING PRICE EXCL. VAT") || 0;
+    tr.dataset.maxqty = maxQty;
+    inputRow.parentNode.insertBefore(tr, inputRow.nextElementSibling);
+    calculateRowHandling(tr);
 }
-function revertToInputRow(row, styleCode='') {
-    row.classList.remove('has-data');
-    row.innerHTML = `
-        <td class="seq-no">${row.rowIndex ? row.rowIndex : ''}</td>
-        <td><input type="text" class="item-code-input" value="${styleCode||''}" placeholder="Enter style code" /></td>
-        <td class="invoice-number-cell"></td>
-        <td class="invoice-date-cell"></td>
-        <td class="return-date-cell"></td>
-        <td class="qty-cell"></td>
-        <td class="amount-cell"></td>
-        <td class="age-cell"></td>
-        <td class="handling-pct-cell"></td>
-        <td class="handling-charge-cell"></td>
-        <td><button type="button" class="remove-row-btn"></button></td>
-    `;
-    updateRemoveButtons();
-    updateTotals();
-    setTimeout(() => {
-        expandForInvoices(row, styleCode, document.getElementById('customerSelect').value, true);
-    }, 100);
-}
-function showInvoiceModal(invoices, rinvs, invCreditedMap, styleCode) {
+function showInvoiceModal(invoices, rinvs, invCreditedMap) {
     const modal = document.getElementById('invoiceModal');
     const list = document.getElementById('invoiceModalList');
     list.innerHTML = "";
@@ -481,6 +398,7 @@ function showInvoiceModal(invoices, rinvs, invCreditedMap, styleCode) {
         });
         list.appendChild(tr);
     });
+    // RINV section
     const rinvSection = document.getElementById('rinvSection');
     const rinvList = document.getElementById('rinvModalList');
     if (rinvs && rinvs.length > 0) {
@@ -533,7 +451,7 @@ function calculateRowHandling(row) {
     const invDateStr = row.dataset.invoiceDate;
     const returnDateInput = row.querySelector('.return-date-input');
     const qtyInput = row.querySelector('.qty-input');
-    if (!invDateStr || !returnDateInput || !returnDateInput.value) {
+    if (!invDateStr || !returnDateInput.value) {
         row.querySelector('.age-cell').textContent = "0 Months 0 Days";
         row.querySelector('.handling-pct-cell').textContent = "0%";
         row.querySelector('.handling-charge-cell').textContent = "R 0.00";
@@ -557,7 +475,8 @@ function calculateRowHandling(row) {
 }
 function updateTotals() {
     let totalQty = 0, totalHandling = 0;
-    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
+    document.querySelectorAll('tr.data-row').forEach(row => {
+        if (row.classList.contains('input-row')) return;
         if (row.style.display === "none") return;
         const qty = parseInt(row.querySelector('.qty-input')?.value || "0", 10);
         const charge = row.querySelector('.handling-charge-cell').textContent;
@@ -590,7 +509,8 @@ function printReport() {
                     <th>Handling Charge</th>
                 </tr>`;
     let seq = 1;
-    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
+    document.querySelectorAll('tr.data-row').forEach(row => {
+        if (row.classList.contains('input-row')) return;
         html += `<tr>
             <td>${seq++}</td>
             <td>${row.querySelector('td:nth-child(2)').textContent}</td>
@@ -630,7 +550,8 @@ function downloadPDF() {
     const headers = [["Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
     let body = [];
     let seq = 1;
-    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
+    document.querySelectorAll('tr.data-row').forEach(row => {
+        if (row.classList.contains('input-row')) return;
         body.push([
             seq++,
             row.querySelector('td:nth-child(2)').textContent,
@@ -666,10 +587,10 @@ function downloadPDF() {
     showPostActionButtons();
 }
 function showPostActionButtons() {
-    document.getElementById('postActionButtons').style.display = '';
+    document.getElementById('postActionButtons').classList.remove('hidden');
 }
 function hidePostActionButtons() {
-    document.getElementById('postActionButtons').style.display = 'none';
+    document.getElementById('postActionButtons').classList.add('hidden');
 }
 function resetAll() {
     renderInputLines(DEFAULT_LINES);
@@ -697,11 +618,7 @@ function setupEvents() {
     document.getElementById('returnsTableBody').addEventListener('click', function (e) {
         if (e.target.classList.contains('remove-row-btn')) {
             const row = e.target.closest('tr');
-            if (row.classList.contains('has-data')) {
-                revertToInputRow(row, row.querySelector('td.readonly')?.textContent || '');
-            } else {
-                removeRow(row);
-            }
+            removeRow(row);
         }
     });
     document.getElementById('returnsTableBody').addEventListener('change', function (e) {
@@ -715,8 +632,8 @@ function setupEvents() {
     document.getElementById('returnsTableBody').addEventListener('input', function (e) {
         if (e.target.classList.contains('return-date-input') ||
             e.target.classList.contains('qty-input')) {
-            const dataRow = e.target.closest('tr.has-data');
-            if (!dataRow) return;
+            const dataRow = e.target.closest('tr.data-row');
+            if (!dataRow || dataRow.classList.contains('input-row')) return;
             if (e.target.classList.contains('qty-input')) {
                 const min = parseInt(e.target.min) || 1;
                 const max = parseInt(e.target.max) || 1;
@@ -728,6 +645,12 @@ function setupEvents() {
             calculateRowHandling(dataRow);
             updateTotals();
         }
+    });
+    document.getElementById('calculateBtn').addEventListener('click', function () {
+        document.querySelectorAll('tr.data-row').forEach(row => {
+            if (!row.classList.contains('input-row')) calculateRowHandling(row);
+        });
+        updateTotals();
     });
     document.getElementById('printBtn').addEventListener('click', function () {
         if ([...document.querySelectorAll('.return-date-input')].some(input => !input.value)) {
@@ -748,10 +671,14 @@ function setupEvents() {
     document.getElementById('addReturnBtn').addEventListener('click', function(){
         resetAll();
     });
+    // Modal actions
     document.getElementById('invoiceModalOk').addEventListener('click', function() {
         if (modalSelectedIndex >= 0 && pendingInputRow) {
-            if (modalDisabledIndexes.includes(modalSelectedIndex)) return;
-            setInputRowToInvoice(pendingInputRow, pendingInputRow.querySelector('td input') ? pendingInputRow.querySelector('td input').value : '', modalInvoices[modalSelectedIndex]);
+            if (modalDisabledIndexes.includes(modalSelectedIndex)) {
+                // Disabled, do nothing
+                return;
+            }
+            insertInvoiceRow(pendingInputRow, pendingInputRow.querySelector('.item-code-input').value.trim(), modalInvoices[modalSelectedIndex]);
             closeInvoiceModal();
             updateRemoveButtons();
             updateTotals();

@@ -8,245 +8,120 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #f7f8fa;
-    color: #28324c;
-    margin: 0;
-    padding: 0;
-}
-.main-container {
-    max-width: 1200px;
-    margin: 32px auto 24px auto;
-    background: #fff;
-    border-radius: 16px;
-    box-shadow: 0 4px 24px rgba(40,56,100,0.11);
-    padding: 38px 32px 32px 32px;
-}
-h1 {
-    color: #18407c;
-    font-size: 2rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    margin-bottom: 18px;
-}
-label {
-    display: block;
-    margin: 12px 0 7px;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-}
-input, select, button {
-    padding: 8px 12px;
-    border: 1px solid #d6d9e2;
-    border-radius: 5px;
-    font-size: 14px;
-}
-input[type="text"], input[type="date"], input[type="number"], select {
-    width: 100%;
-}
-input:focus, select:focus {
-    outline: 2px solid #4676d7;
-    border-color:#4676d7;
-}
-#dataStatus {
-    margin: 10px 0 0 0;
-    padding: 10px;
-    border-radius: 5px;
-    font-size: 15px;
-}
-.data-loaded {
-    background-color: #e1f6ea;
-    color: #1d5937;
-}
-.data-empty {
-    background-color: #fff4e7;
-    color: #bd342f;
-}
-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    margin-top: 18px;
-    background: #fff;
-}
-th, td {
-    border: none;
-    padding: 10px 7px;
-    font-size: 13px;
-    vertical-align: middle;
-}
-th {
-    background-color: #f4f6fa;
-    font-weight: 700;
-    color: #18407c;
-    border-bottom: 2px solid #e5e8f1;
-}
-tbody tr.has-data {
-    background: #f9fbff;
-}
-tr.input-row {
-    background: #fff;
-}
-tbody tr:not(.input-row):not(.has-data):nth-child(even), tr.input-row:nth-child(even) {
-    background: #f7f8fa;
-}
-tr td, tr th {
-    border-bottom: 1px solid #e5e8f1;
-}
-.readonly {
-    background: #f7f8fa;
-    color: #454545;
-}
-.qty-input, .return-date-input {
-    background: #fafdff;
-    width: 64px;
-}
-.remove-row-btn {
-    background: #f64d4d;
-    color: #fff;
-    border: none;
-    border-radius: 5px;
-    padding: 5px 14px;
-    font-size: 17px;
-    cursor: pointer;
-    transition: background 0.18s;
-}
-.remove-row-btn:hover {
-    background: #bd342f;
-}
-.totals-row td {
-    font-weight: bold;
-    background: #eaf1fc;
-    font-size: 14px;
-    border-top: 2px solid #d6e0fa;
-}
-#customerSearch {
-    width: 100%;
-    margin-bottom: 10px;
-}
-.action-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    justify-content: flex-end;
-    margin-top: 18px;
-}
-.action-bar button {
-    min-width: 130px;
-    font-size:15px;
-    font-weight: 600;
-    border: none;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(40,56,100,0.04);
-    transition: background 0.19s;
-}
-.action-bar button.success {
-    background: #3cd278;
-    color: #fff;
-}
-.action-bar button.success:hover {
-    background: #238b47;
-}
-.action-bar button.gray {
-    background: #6c757d;
-    color: #fff;
-}
-.action-bar button.gray:hover {
-    background: #495057;
-}
-.action-bar button.red {
-    background: #dc3545;
-    color: #fff;
-}
-.action-bar button.red:hover {
-    background: #b02a37;
-}
-.modal {
-    display:none; position:fixed; z-index:10000; left:0; top:0; width:100vw; height:100vh; background:rgba(40,56,100,0.17);
-}
-.modal-content {
-    background:#fff; margin:5% auto; padding:32px 24px 22px 24px; border-radius:16px; width:95%; max-width:650px; box-shadow:0 10px 30px rgba(40,56,100,0.16);
-}
-.modal-content h3 { margin-top: 0; font-size: 1.35rem; color: #18407c; }
-.modal-list { width:100%; border-collapse:collapse; margin-bottom: 12px;}
-.modal-list th, .modal-list td { font-size:13px; border: none; border-bottom:1px solid #e5e8f1; padding:11px 10px;}
-.modal-list th { background: #f4f6fa; font-weight: 700; color: #18407c;}
-.modal-list tr { background: #f9f9f9;}
-.modal-list tr.selected { background: #d3e8fc;}
-.modal-list tr.disabled { color:#aaa; background: #f8eaea!important; pointer-events: none;}
-.modal-list tr:hover:not(.disabled) { background:#e5e5e5; cursor:pointer;}
-.modal-note { font-size:12px; color:#b02a37; margin-left:7px;}
-.modal-actions { margin-top:20px;text-align:right;}
-#rinvSection { margin-top:24px; }
-#rinvSection table { margin-top:5px; }
-#invoiceModalOk[disabled] {
-    background: #eaeaea !important;
-    color: #aaa !important;
-    cursor: not-allowed;
-}
-@media (max-width: 900px) {
-    .main-container { padding: 16px 2vw 18px 2vw;}
-    table, th, td { font-size: 11px; }
-    .action-bar button { min-width: 90px; }
-    .modal-content { padding: 14px 3vw; }
-}
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; color: #333; }
+    h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+    .section { background: #f9f9f9; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);}
+    label { display: block; margin: 10px 0 5px; font-weight: bold; }
+    input, select, button { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+    button { background-color: #3498db; color: white; border: none; cursor: pointer; margin-top: 10px; transition: background-color 0.3s; padding: 8px 12px;}
+    button:hover { background-color: #2980b9; }
+    button.secondary { background-color: #6c757d; }
+    button.danger { background-color: #dc3545; }
+    button.success { background-color: #28a745; }
+    #dataStatus { margin: 15px 0; padding: 10px; border-radius: 4px; }
+    .data-loaded { background-color: #d4edda; color: #155724; }
+    .data-empty { background-color: #f8d7da; color: #721c24; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0;}
+    th, td { border: 1px solid #ddd; padding: 4px 6px; text-align: left; vertical-align: middle; font-size: 12px;}
+    th { background-color: #e5e5e5; }
+    tr.data-row { background: #fff; }
+    tr.data-row:nth-child(even) { background: #f8fafe; }
+    .readonly { background: #f3f3f3; }
+    .qty-input, .return-date-input { background: #f8fcff; width: 60px; }
+    .remove-row-btn { background: #dc3545; color: #fff; border: none; border-radius: 4px; padding: 3px 10px; font-size: 15px; cursor: pointer;}
+    .remove-row-btn:hover { background: #b02a37; }
+    .totals-row { font-weight: bold; background: #d3e8fc; }
+    .hidden { display: none !important; }
+    #customerSearch { width: 100%; margin-bottom: 10px; }
+    .action-buttons button { margin-right: 8px; }
+    /* Modal styles */
+    .modal { display:none; position:fixed; z-index:99999; left:0; top:0; width:100vw; height:100vh; background:rgba(0,0,0,0.33);}
+    .modal-content { background:#fff; margin:8% auto; padding:20px; border-radius:8px; width:95%; max-width:520px; box-shadow:0 2px 10px rgba(0,0,0,0.2);}
+    .modal-content h3 { margin-top: 0; }
+    .modal-list { width:100%; border-collapse:collapse;}
+    .modal-list th, .modal-list td { font-size:12px; border:1px solid #ddd; padding:3px 6px;}
+    .modal-list tr { background: #f9f9f9;}
+    .modal-list tr.selected { background: #d3e8fc;}
+    .modal-list tr.disabled { color:#aaa; background: #f8eaea!important; pointer-events: none;}
+    .modal-list tr:hover:not(.disabled) { background:#e5e5e5; cursor:pointer;}
+    .modal-note { font-size:11px; color:#b02a37; margin-left:6px;}
+    .modal-actions { margin-top:12px;text-align:right;}
+    #rinvSection { margin-top:24px; }
+    #rinvSection table { margin-top:5px; }
+    @media print {
+        .no-print { display: none !important; }
+        #printableArea, #printableArea * { visibility: visible; }
+        #printableArea { position: absolute; left: 0; top: 0; width: 100%; background: #fff; z-index: 9999;}
+    }
+    @media (max-width: 768px) {
+        table, th, td { font-size: 11px; }
+    }
 </style>
 </head>
 <body>
-<div class="main-container">
     <h1>SIMA Eyewear Returns Handling Calculator</h1>
-    <label for="customerSearch">Search Customer:</label>
-    <input type="text" id="customerSearch" placeholder="Type to search..." autocomplete="off" />
-    <label for="customerSelect" style="margin-top:10px;">Select Customer:</label>
-    <select id="customerSelect">
-        <option value="">-- Select Customer --</option>
-    </select>
-    <div id="dataStatus" class="data-empty" style="margin-top:12px;">
-        Loading sales report data from GitHub...
-    </div>
-    <div id="calculatorSection" style="display: none;">
-        <table id="returnsTable">
-            <thead>
-                <tr>
-                    <th>Seq No</th>
-                    <th>Style Code</th>
-                    <th>Invoice Number</th>
-                    <th>Invoice Date</th>
-                    <th>Return Date <span title="Select the actual return date">🛈</span></th>
-                    <th>Qty</th>
-                    <th>Amount Exc VAT</th>
-                    <th>Age (M D format)</th>
-                    <th>Handling %</th>
-                    <th>Handling Charge</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="returnsTableBody"></tbody>
-            <tfoot>
-                <tr class="totals-row">
-                    <td colspan="5" style="text-align:right;">Totals:</td>
-                    <td id="totalQty">0</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td id="totalHandlingCharge">R 0.00</td>
-                    <td></td>
-                </tr>
-            </tfoot>
-        </table>
-        <div class="action-bar no-print">
-            <button id="addLineBtn" class="success">+ Add Line</button>
-            <button id="printBtn" class="gray">Print Report</button>
-            <button id="downloadBtn" class="gray">Download as PDF</button>
-            <button id="resetBtn" class="red">Clear Form</button>
+    <div class="section">
+        <h2>Sales Report Data</h2>
+        <div id="dataStatus" class="data-empty">
+            Loading sales report data from GitHub...
         </div>
-        <div class="action-bar no-print" id="postActionButtons" style="display:none;">
+    </div>
+
+    <div class="section" id="calculatorSection" style="display: none;">
+        <label for="customerSearch">Search Customer:</label>
+        <input type="text" id="customerSearch" placeholder="Type to search..." autocomplete="off" />
+
+        <label for="customerSelect" style="margin-top:10px;">Select Customer:</label>
+        <select id="customerSelect">
+            <option value="">-- Select Customer --</option>
+        </select>
+
+        <div style="margin-top:18px;">
+            <table id="returnsTable">
+                <thead>
+                    <tr>
+                        <th>Seq No</th>
+                        <th>Style Code</th>
+                        <th>Invoice Number</th>
+                        <th>Invoice Date</th>
+                        <th>Return Date <span title="Select the actual return date">🛈</span></th>
+                        <th>Qty</th>
+                        <th>Amount Exc VAT</th>
+                        <th>Age (M D format)</th>
+                        <th>Handling %</th>
+                        <th>Handling Charge</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="returnsTableBody"></tbody>
+                <tfoot>
+                    <tr class="totals-row">
+                        <td colspan="5" style="text-align:right;">Totals:</td>
+                        <td id="totalQty">0</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td id="totalHandlingCharge">R 0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+            <button id="addLineBtn" type="button" class="success">+ Add Line</button>
+        </div>
+        <div class="action-buttons no-print">
+            <button id="calculateBtn">Calculate Handling Charges</button>
+            <button id="printBtn" class="secondary">Print Report</button>
+            <button id="downloadBtn" class="secondary">Download as PDF</button>
+            <button id="resetBtn" class="danger">Clear Form</button>
+        </div>
+        <div id="postActionButtons" class="action-buttons no-print hidden">
             <button id="addReturnBtn" class="success">Add Another Return</button>
-            <button id="resetBtn2" class="red">Clear Form</button>
+            <button id="resetBtn2" class="danger">Clear Form</button>
         </div>
         <div id="printableArea" style="display: none;"></div>
     </div>
+
+    <!-- Modal for invoice selection -->
     <div id="invoiceModal" class="modal no-print">
         <div class="modal-content">
             <h3>Select Invoice for Return</h3>
@@ -279,14 +154,13 @@ tr td, tr th {
             </div>
             <div class="modal-actions">
                 <button id="invoiceModalOk" class="success" disabled>Use Selected</button>
-                <button id="invoiceModalCancel" class="red">Cancel</button>
+                <button id="invoiceModalCancel" class="danger">Cancel</button>
             </div>
         </div>
     </div>
-</div>
 <script>
-// (Paste your latest working JS logic here: all previous correct workflow, modal, delete, real-time calculation, etc.)
-// The JS from the previous full code blocks in this conversation will work as is.
+// Place the JS from your last working version here (with correct popup, line deletion, etc).
+// If you want me to paste the full JS again, let me know!
 </script>
 </body>
 </html>

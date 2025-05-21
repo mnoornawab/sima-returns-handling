@@ -171,6 +171,7 @@ let pendingInputRow = null;
 let modalInvoices = [];
 let modalSelectedIndex = -1;
 let modalDisabledIndexes = [];
+let lastPopupInputRow = null;
 
 function todayStr() {
     const t = new Date();
@@ -252,7 +253,24 @@ function updateRemoveButtons() {
     });
 }
 function removeRow(row) {
-    row.parentNode.removeChild(row);
+    // If we're removing a selected invoice row (not an input row), and the previous row is an input row, re-open the popup
+    const prevRow = row.previousElementSibling;
+    if (
+        prevRow &&
+        prevRow.classList.contains('input-row') &&
+        !row.classList.contains('input-row')
+    ) {
+        // get values to re-open
+        const styleCode = prevRow.querySelector('.item-code-input').value.trim();
+        const customer = document.getElementById('customerSelect').value;
+        // Remove the row and then open the popup again for that input row
+        row.parentNode.removeChild(row);
+        setTimeout(function() {
+            expandForInvoices(prevRow, styleCode, customer, true);
+        }, 50);
+    } else {
+        row.parentNode.removeChild(row);
+    }
     updateSeqNos();
     updateRemoveButtons();
     updateTotals();
@@ -263,7 +281,8 @@ function updateSeqNos() {
         row.querySelector('.seq-no').textContent = seq++;
     });
 }
-function expandForInvoices(inputRow, styleCode, customer) {
+function expandForInvoices(inputRow, styleCode, customer, forcePopup=false) {
+    // Remove any previously expanded data row after this inputRow (but not other input lines)
     let next = inputRow.nextElementSibling;
     if (next && !next.classList.contains('input-row')) {
         next.remove();
@@ -280,11 +299,10 @@ function expandForInvoices(inputRow, styleCode, customer) {
     const invNumbers = invRows.filter(row =>
         /^INV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
-    // All return invoice numbers (RINV-xxxxx or RINV-xxxxx-1 etc)
+    // All return invoice numbers (RINV-\d+ or RINV-\d+-1 etc)
     const rinvNumbers = invRows.filter(row =>
         /^RINV-\d+/.test(getVal(row, "INVOICE NUMBER"))
     );
-
     // Mark which invoices are already credited
     const invCreditedMap = {};
     rinvNumbers.forEach(rinv => {
@@ -296,7 +314,8 @@ function expandForInvoices(inputRow, styleCode, customer) {
         updateTotals();
         return;
     }
-    if (invNumbers.length === 1) {
+    // If only one invoice and not credited, auto insert, else always show popup for clarity
+    if (invNumbers.length === 1 && !forcePopup) {
         const invNumPart = getVal(invNumbers[0], "INVOICE NUMBER").match(/^INV-(\d+)/)?.[1];
         if (invNumPart && invCreditedMap[invNumPart]) {
             alert("This invoice has already been credited as " + invCreditedMap[invNumPart]);
@@ -308,12 +327,14 @@ function expandForInvoices(inputRow, styleCode, customer) {
         modalDisabledIndexes = [];
         modalSelectedIndex = -1;
         pendingInputRow = inputRow;
+        lastPopupInputRow = inputRow;
         showInvoiceModal(invNumbers, rinvNumbers, invCreditedMap);
     }
     updateRemoveButtons();
     updateTotals();
 }
 function insertInvoiceRow(inputRow, styleCode, inv) {
+    // Remove any existing data row after this inputRow
     let next = inputRow.nextElementSibling;
     if (next && !next.classList.contains('input-row')) {
         next.remove();
@@ -653,7 +674,10 @@ function setupEvents() {
     // Modal actions
     document.getElementById('invoiceModalOk').addEventListener('click', function() {
         if (modalSelectedIndex >= 0 && pendingInputRow) {
-            if (modalDisabledIndexes.includes(modalSelectedIndex)) return;
+            if (modalDisabledIndexes.includes(modalSelectedIndex)) {
+                // Disabled, do nothing
+                return;
+            }
             insertInvoiceRow(pendingInputRow, pendingInputRow.querySelector('.item-code-input').value.trim(), modalInvoices[modalSelectedIndex]);
             closeInvoiceModal();
             updateRemoveButtons();

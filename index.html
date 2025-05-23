@@ -631,8 +631,12 @@ function printReport() {
 function downloadPDF() {
     const doc = new window.jspdf.jsPDF({orientation: "landscape"});
     const customerName = document.getElementById('customerSelect').value || '';
+    // Make the report header bold
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.text("SIMA Eyewear Returns Handling Report", 10, 13);
+    // Set to normal for the rest
+    doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.text(`Customer: ${customerName}`, 10, 19);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 24);
@@ -660,6 +664,7 @@ function downloadPDF() {
         "", "", "",
         document.getElementById('totalHandlingCharge').textContent
     ]);
+
     if (doc.autoTable) {
         doc.autoTable({
             head: headers,
@@ -667,19 +672,26 @@ function downloadPDF() {
             startY: 28,
             theme: 'grid',
             styles: { fontSize: 7, cellPadding: 1.5 },
-            headStyles: { fillColor: [229, 229, 229] },
+            headStyles: { fillColor: [229, 229, 229], fontStyle: 'bold' }, // Bold header
             tableWidth: 'auto',
             margin: { left: 6, right: 6 }
         });
     }
+
+    // --- Add summary of invoice numbers at the bottom ---
+    let invoiceNumbers = [];
+    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
+        invoiceNumbers.push(row.querySelector('td:nth-child(3)').textContent);
+    });
+    if(invoiceNumbers.length) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Invoice Numbers (in sequence):", 10, doc.lastAutoTable.finalY + 10);
+        doc.setFont("helvetica", "normal");
+        doc.text(invoiceNumbers.join(", "), 10, doc.lastAutoTable.finalY + 15);
+    }
+
     doc.save("returns_handling_report.pdf");
     showPostActionButtons();
-}
-function showPostActionButtons() {
-    document.getElementById('postActionButtons').classList.remove('hidden');
-}
-function hidePostActionButtons() {
-    document.getElementById('postActionButtons').classList.add('hidden');
 }
 
 // --- INIT ---

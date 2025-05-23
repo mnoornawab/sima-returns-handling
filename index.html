@@ -631,19 +631,12 @@ function printReport() {
 function downloadPDF() {
     const doc = new window.jspdf.jsPDF({orientation: "landscape"});
     const customerName = document.getElementById('customerSelect').value || '';
-    // Main title, bold, bigger, very dark
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(20, 20, 20);
-    doc.text("SIMA Eyewear Returns Handling Report", 10, 16);
-
-    doc.setFont("helvetica", "normal");
     doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Customer: ${customerName}`, 10, 26);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 34);
+    doc.text("SIMA Eyewear Returns Handling Report", 10, 13);
+    doc.setFontSize(10);
+    doc.text(`Customer: ${customerName}`, 10, 19);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 24);
 
-    // Main data table (all columns)
     const headers = [["Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
     let body = [];
     let seq = 1;
@@ -667,83 +660,27 @@ function downloadPDF() {
         "", "", "",
         document.getElementById('totalHandlingCharge').textContent
     ]);
-
-    let endY = 40;
     if (doc.autoTable) {
         doc.autoTable({
             head: headers,
             body: body,
-            startY: endY,
+            startY: 28,
             theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 2 },
-            headStyles: { fillColor: [40, 60, 100], fontStyle: 'bold', textColor: 255 }, // Dark blue, bold, white text
-            tableWidth: 'wrap',
-            margin: { left: 6, right: 6 }
-        });
-        endY = doc.lastAutoTable.finalY + 10;
-    }
-
-    // --- Invoice summary table ---
-    let invoiceSummary = [];
-    let summarySeq = 1;
-    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
-        invoiceSummary.push([
-            summarySeq++,
-            row.querySelector('td:nth-child(3)').textContent, // Invoice Number
-            row.querySelector('td:nth-child(2)').textContent, // Style Code
-            row.querySelector('.qty-input')?.value || "1",    // Qty
-            row.querySelector('td:nth-child(7)').textContent, // Amount
-            row.querySelector('.handling-charge-cell').textContent // Handling Charges
-        ]);
-    });
-
-    // Totals for summary
-    let totalQty = document.getElementById('totalQty').textContent;
-    let totalHandling = document.getElementById('totalHandlingCharge').textContent;
-
-    if (invoiceSummary.length > 0 && doc.autoTable) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(13);
-        doc.setTextColor(20, 20, 20);
-        doc.text("Invoice Numbers Summary", 10, endY + 7);
-
-        // Add totals row
-        invoiceSummary.push([
-            "", "Totals:", "", totalQty, "", totalHandling
-        ]);
-
-        doc.autoTable({
-            head: [["Seq No.", "Invoice Number", "Style Code", "Qty", "Amount", "Handling Charges"]],
-            body: invoiceSummary,
-            startY: endY + 10,
-            theme: 'grid',
-            styles: { fontSize: 10, cellPadding: 2 },
-            headStyles: { fillColor: [40, 60, 100], fontStyle: 'bold', textColor: 255 },
-            tableWidth: 'wrap',
+            styles: { fontSize: 7, cellPadding: 1.5 },
+            headStyles: { fillColor: [229, 229, 229] },
+            tableWidth: 'auto',
             margin: { left: 6, right: 6 }
         });
     }
-
     doc.save("returns_handling_report.pdf");
     showPostActionButtons();
 }
-
-    // --- Add summary of invoice numbers at the bottom ---
-    let invoiceNumbers = [];
-    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
-        invoiceNumbers.push(row.querySelector('td:nth-child(3)').textContent);
-    });
-    if(invoiceNumbers.length) {
-        doc.setFont("helvetica", "bold");
-        doc.text("Invoice Numbers (in sequence):", 10, doc.lastAutoTable.finalY + 10);
-        doc.setFont("helvetica", "normal");
-        doc.text(invoiceNumbers.join(", "), 10, doc.lastAutoTable.finalY + 15);
-    }
-
-    doc.save("returns_handling_report.pdf");
-    showPostActionButtons();
+function showPostActionButtons() {
+    document.getElementById('postActionButtons').classList.remove('hidden');
 }
-
+function hidePostActionButtons() {
+    document.getElementById('postActionButtons').classList.add('hidden');
+}
 // --- INIT ---
 document.addEventListener('DOMContentLoaded', function () {
     renderInputLines(DEFAULT_LINES);

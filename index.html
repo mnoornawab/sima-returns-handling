@@ -631,20 +631,26 @@ function printReport() {
 function downloadPDF() {
     const doc = new window.jspdf.jsPDF({orientation: "landscape"});
     const customerName = document.getElementById('customerSelect').value || '';
-    // Main title, bold, bigger, very dark
+    const todayStr = new Date().toLocaleDateString();
+
+    // Main Title
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.setTextColor(20, 20, 20);
+    doc.setTextColor(34, 34, 34); // almost black
     doc.text("SIMA Eyewear Returns Handling Report", 10, 16);
-
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(12);
+    doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
     doc.text(`Customer: ${customerName}`, 10, 26);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 34);
+    doc.text(`Date: ${todayStr}`, 10, 34);
 
-    // Main data table (all columns)
-    const headers = [["Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
+    // Collect data for main table
+    const headers = [
+        [
+            "Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date",
+            "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"
+        ]
+    ];
     let body = [];
     let seq = 1;
     document.querySelectorAll('tr.data-row.has-data').forEach(row => {
@@ -668,26 +674,42 @@ function downloadPDF() {
         document.getElementById('totalHandlingCharge').textContent
     ]);
 
+    // Render main table
     let endY = 40;
-    if (doc.autoTable) {
-        doc.autoTable({
-            head: headers,
-            body: body,
-            startY: endY,
-            theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 2 },
-            headStyles: { fillColor: [40, 60, 100], fontStyle: 'bold', textColor: 255 }, // Dark blue, bold, white text
-            tableWidth: 'wrap',
-            margin: { left: 6, right: 6 }
-        });
-        endY = doc.lastAutoTable.finalY + 10;
-    }
+    doc.autoTable({
+        head: headers,
+        body: body,
+        startY: endY,
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: {
+            fillColor: [30, 40, 90], // darker blue
+            fontStyle: 'bold',
+            textColor: 255
+        },
+        tableWidth: 'auto',
+        margin: { left: 6, right: 6 },
+        // Set column widths for better fitting
+        columnStyles: {
+            0: {cellWidth: 12}, // Seq No
+            1: {cellWidth: 35}, // Style Code
+            2: {cellWidth: 33}, // Invoice Number
+            3: {cellWidth: 28}, // Invoice Date
+            4: {cellWidth: 28}, // Return Date
+            5: {cellWidth: 13}, // Qty
+            6: {cellWidth: 28}, // Amount
+            7: {cellWidth: 33}, // Age
+            8: {cellWidth: 20}, // Handling %
+            9: {cellWidth: 28}  // Handling Charge
+        }
+    });
+    endY = doc.lastAutoTable.finalY + 12;
 
-    // --- Invoice summary table ---
-    let invoiceSummary = [];
+    // --- Invoice Summary Table ---
+    let invoiceSummaryRows = [];
     let summarySeq = 1;
     document.querySelectorAll('tr.data-row.has-data').forEach(row => {
-        invoiceSummary.push([
+        invoiceSummaryRows.push([
             summarySeq++,
             row.querySelector('td:nth-child(3)').textContent, // Invoice Number
             row.querySelector('td:nth-child(2)').textContent, // Style Code
@@ -700,27 +722,37 @@ function downloadPDF() {
     // Totals for summary
     let totalQty = document.getElementById('totalQty').textContent;
     let totalHandling = document.getElementById('totalHandlingCharge').textContent;
-
-    if (invoiceSummary.length > 0 && doc.autoTable) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(13);
-        doc.setTextColor(20, 20, 20);
-        doc.text("Invoice Numbers Summary", 10, endY + 7);
-
+    if (invoiceSummaryRows.length > 0) {
         // Add totals row
-        invoiceSummary.push([
+        invoiceSummaryRows.push([
             "", "Totals:", "", totalQty, "", totalHandling
         ]);
 
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(13);
+        doc.setTextColor(34, 34, 34);
+        doc.text("Invoice Numbers Summary", 10, endY + 7);
+
         doc.autoTable({
             head: [["Seq No.", "Invoice Number", "Style Code", "Qty", "Amount", "Handling Charges"]],
-            body: invoiceSummary,
+            body: invoiceSummaryRows,
             startY: endY + 10,
             theme: 'grid',
             styles: { fontSize: 10, cellPadding: 2 },
-            headStyles: { fillColor: [40, 60, 100], fontStyle: 'bold', textColor: 255 },
-            tableWidth: 'wrap',
-            margin: { left: 6, right: 6 }
+            headStyles: {
+                fillColor: [30, 40, 90], // darker blue
+                fontStyle: 'bold',
+                textColor: 255
+            },
+            margin: { left: 6, right: 6 },
+            columnStyles: {
+                0: {cellWidth: 14}, // Seq No
+                1: {cellWidth: 36}, // Invoice Number
+                2: {cellWidth: 38}, // Style Code
+                3: {cellWidth: 16}, // Qty
+                4: {cellWidth: 28}, // Amount
+                5: {cellWidth: 32}  // Handling Charges
+            }
         });
     }
 

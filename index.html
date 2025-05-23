@@ -633,18 +633,18 @@ function downloadPDF() {
     const customerName = document.getElementById('customerSelect').value || '';
     const todayStr = new Date().toLocaleDateString();
 
-    // Main Title
+    // MAIN HEADER
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
-    doc.setTextColor(34, 34, 34); // almost black
-    doc.text("SIMA Eyewear Returns Handling Report", 10, 16);
+    doc.setFontSize(20);
+    doc.setTextColor(10, 10, 10); // deeper black
+    doc.text("SIMA Eyewear Returns Handling Report", 10, 17);
+    doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
     doc.text(`Customer: ${customerName}`, 10, 26);
     doc.text(`Date: ${todayStr}`, 10, 34);
 
-    // Collect data for main table
+    // MAIN TABLE
     const headers = [
         [
             "Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date",
@@ -674,8 +674,7 @@ function downloadPDF() {
         document.getElementById('totalHandlingCharge').textContent
     ]);
 
-    // Render main table
-    let endY = 40;
+    let endY = 42;
     doc.autoTable({
         head: headers,
         body: body,
@@ -683,21 +682,20 @@ function downloadPDF() {
         theme: 'grid',
         styles: { fontSize: 9, cellPadding: 2 },
         headStyles: {
-            fillColor: [30, 40, 90], // darker blue
+            fillColor: [25, 25, 80], // even darker blue
             fontStyle: 'bold',
             textColor: 255
         },
         tableWidth: 'auto',
         margin: { left: 6, right: 6 },
-        // Set column widths for better fitting
         columnStyles: {
-            0: {cellWidth: 12}, // Seq No
-            1: {cellWidth: 35}, // Style Code
+            0: {cellWidth: 13}, // Seq No
+            1: {cellWidth: 30}, // Style Code
             2: {cellWidth: 33}, // Invoice Number
             3: {cellWidth: 28}, // Invoice Date
             4: {cellWidth: 28}, // Return Date
             5: {cellWidth: 13}, // Qty
-            6: {cellWidth: 28}, // Amount
+            6: {cellWidth: 26}, // Amount
             7: {cellWidth: 33}, // Age
             8: {cellWidth: 20}, // Handling %
             9: {cellWidth: 28}  // Handling Charge
@@ -705,7 +703,7 @@ function downloadPDF() {
     });
     endY = doc.lastAutoTable.finalY + 12;
 
-    // --- Invoice Summary Table ---
+    // INVOICE SUMMARY TABLE
     let invoiceSummaryRows = [];
     let summarySeq = 1;
     document.querySelectorAll('tr.data-row.has-data').forEach(row => {
@@ -729,18 +727,18 @@ function downloadPDF() {
         ]);
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(13);
-        doc.setTextColor(34, 34, 34);
-        doc.text("Invoice Numbers Summary", 10, endY + 7);
+        doc.setFontSize(14);
+        doc.setTextColor(10, 10, 10);
+        doc.text("Invoice Numbers Summary", 10, endY + 8);
 
         doc.autoTable({
             head: [["Seq No.", "Invoice Number", "Style Code", "Qty", "Amount", "Handling Charges"]],
             body: invoiceSummaryRows,
-            startY: endY + 10,
+            startY: endY + 12,
             theme: 'grid',
             styles: { fontSize: 10, cellPadding: 2 },
             headStyles: {
-                fillColor: [30, 40, 90], // darker blue
+                fillColor: [25, 25, 80],
                 fontStyle: 'bold',
                 textColor: 255
             },
@@ -748,7 +746,7 @@ function downloadPDF() {
             columnStyles: {
                 0: {cellWidth: 14}, // Seq No
                 1: {cellWidth: 36}, // Invoice Number
-                2: {cellWidth: 38}, // Style Code
+                2: {cellWidth: 35}, // Style Code
                 3: {cellWidth: 16}, // Qty
                 4: {cellWidth: 28}, // Amount
                 5: {cellWidth: 32}  // Handling Charges

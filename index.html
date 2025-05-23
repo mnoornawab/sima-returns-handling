@@ -631,10 +631,10 @@ function printReport() {
 function downloadPDF() {
     const doc = new window.jspdf.jsPDF({orientation: "landscape"});
     const customerName = document.getElementById('customerSelect').value || '';
-    // Main title, bold, bigger, black
+    // Main title, bold, bigger, very dark
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.setTextColor(30, 30, 30);
+    doc.setTextColor(20, 20, 20);
     doc.text("SIMA Eyewear Returns Handling Report", 10, 16);
 
     doc.setFont("helvetica", "normal");
@@ -643,7 +643,7 @@ function downloadPDF() {
     doc.text(`Customer: ${customerName}`, 10, 26);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 10, 34);
 
-    // Main table (all data, all columns)
+    // Main data table (all columns)
     const headers = [["Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date", "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"]];
     let body = [];
     let seq = 1;
@@ -677,7 +677,7 @@ function downloadPDF() {
             theme: 'grid',
             styles: { fontSize: 9, cellPadding: 2 },
             headStyles: { fillColor: [40, 60, 100], fontStyle: 'bold', textColor: 255 }, // Dark blue, bold, white text
-            tableWidth: 'auto',
+            tableWidth: 'wrap',
             margin: { left: 6, right: 6 }
         });
         endY = doc.lastAutoTable.finalY + 10;
@@ -704,8 +704,13 @@ function downloadPDF() {
     if (invoiceSummary.length > 0 && doc.autoTable) {
         doc.setFont("helvetica", "bold");
         doc.setFontSize(13);
-        doc.setTextColor(30, 30, 30);
+        doc.setTextColor(20, 20, 20);
         doc.text("Invoice Numbers Summary", 10, endY + 7);
+
+        // Add totals row
+        invoiceSummary.push([
+            "", "Totals:", "", totalQty, "", totalHandling
+        ]);
 
         doc.autoTable({
             head: [["Seq No.", "Invoice Number", "Style Code", "Qty", "Amount", "Handling Charges"]],
@@ -714,17 +719,8 @@ function downloadPDF() {
             theme: 'grid',
             styles: { fontSize: 10, cellPadding: 2 },
             headStyles: { fillColor: [40, 60, 100], fontStyle: 'bold', textColor: 255 },
-            tableWidth: 'auto',
-            margin: { left: 6, right: 6 },
-            didDrawPage: function (data) {
-                // Add totals at the bottom of the summary table
-                const summaryTableY = data.cursor.y;
-                doc.setFontSize(11);
-                doc.setFont("helvetica", "bold");
-                doc.text("Totals:", 110, summaryTableY + 7);
-                doc.text(totalQty, 145, summaryTableY + 7);
-                doc.text(totalHandling, 180, summaryTableY + 7);
-            }
+            tableWidth: 'wrap',
+            margin: { left: 6, right: 6 }
         });
     }
 

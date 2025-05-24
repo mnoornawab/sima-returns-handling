@@ -629,112 +629,114 @@ function printReport() {
     showPostActionButtons();
 }
 function downloadPDF() {
-    const doc = new window.jspdf.jsPDF({orientation: "landscape"});
-    const customerName = document.getElementById('customerSelect').value || '';
+    const doc = new window.jspdf.jsPDF({ orientation: "landscape" });
+    const customerSelect = document.getElementById('customerSelect');
+    const customerName = customerSelect ? customerSelect.value : '';
     const todayStr = new Date().toLocaleDateString();
 
-    // MAIN HEADER
+    // --- MAIN HEADER ---
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
-    doc.setTextColor(10, 10, 10); // deeper black
+    doc.setTextColor(10, 10, 10);
     doc.text("SIMA Eyewear Returns Handling Report", 10, 17);
+
     doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
     doc.text(`Customer: ${customerName}`, 10, 26);
     doc.text(`Date: ${todayStr}`, 10, 34);
 
-    // MAIN TABLE
-    const headers = [
-        [
-            "Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date",
-            "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"
-        ]
-    ];
-    let body = [];
+    // --- MAIN TABLE HEADERS ---
+    const headers = [[
+        "Seq No", "Style Code", "Invoice Number", "Invoice Date", "Return Date",
+        "Qty", "Amount Exc VAT", "Age (M D format)", "Handling %", "Handling Charge"
+    ]];
+
+    const body = [];
     let seq = 1;
-    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
+    const rows = document.querySelectorAll('tr.data-row.has-data');
+
+    rows.forEach(row => {
         body.push([
             seq++,
-            row.querySelector('td:nth-child(2)').textContent,
-            row.querySelector('td:nth-child(3)').textContent,
-            row.querySelector('td:nth-child(4)').textContent,
-            row.querySelector('.return-date-input')?.value || "",
-            row.querySelector('.qty-input')?.value || "1",
-            row.querySelector('td:nth-child(7)').textContent,
-            row.querySelector('.age-cell').textContent,
-            row.querySelector('.handling-pct-cell').textContent,
-            row.querySelector('.handling-charge-cell').textContent
+            row.querySelector('td:nth-child(2)')?.textContent || '',
+            row.querySelector('td:nth-child(3)')?.textContent || '',
+            row.querySelector('td:nth-child(4)')?.textContent || '',
+            row.querySelector('.return-date-input')?.value || '',
+            row.querySelector('.qty-input')?.value || '1',
+            row.querySelector('td:nth-child(7)')?.textContent || '',
+            row.querySelector('.age-cell')?.textContent || '',
+            row.querySelector('.handling-pct-cell')?.textContent || '',
+            row.querySelector('.handling-charge-cell')?.textContent || ''
         ]);
     });
+
+    // --- TOTALS ROW ---
+    const totalQty = document.getElementById('totalQty')?.textContent || '';
+    const totalHandling = document.getElementById('totalHandlingCharge')?.textContent || '';
+
     body.push([
         "", "", "", "", "Totals:",
-        document.getElementById('totalQty').textContent,
-        "", "", "",
-        document.getElementById('totalHandlingCharge').textContent
+        totalQty, "", "", "", totalHandling
     ]);
 
-    let endY = 42;
+    // --- MAIN TABLE ---
     doc.autoTable({
         head: headers,
         body: body,
-        startY: endY,
+        startY: 42,
         theme: 'grid',
         styles: { fontSize: 9, cellPadding: 2 },
         headStyles: {
-            fillColor: [25, 25, 80], // even darker blue
+            fillColor: [25, 25, 80],
             fontStyle: 'bold',
             textColor: 255
         },
         tableWidth: 'auto',
-        margin: { left: 6, right: 6 },
-        columnStyles: {
-            0: {cellWidth: 13}, // Seq No
-            1: {cellWidth: 30}, // Style Code
-            2: {cellWidth: 33}, // Invoice Number
-            3: {cellWidth: 28}, // Invoice Date
-            4: {cellWidth: 28}, // Return Date
-            5: {cellWidth: 13}, // Qty
-            6: {cellWidth: 26}, // Amount
-            7: {cellWidth: 33}, // Age
-            8: {cellWidth: 20}, // Handling %
-            9: {cellWidth: 28}  // Handling Charge
-        }
+        margin: { left: 6, right: 6 }
     });
-    endY = doc.lastAutoTable.finalY + 12;
 
-    // INVOICE SUMMARY TABLE
-    let invoiceSummaryRows = [];
-    let summarySeq = 1;
-    document.querySelectorAll('tr.data-row.has-data').forEach(row => {
-        invoiceSummaryRows.push([
-            summarySeq++,
-            row.querySelector('td:nth-child(3)').textContent, // Invoice Number
-            row.querySelector('td:nth-child(2)').textContent, // Style Code
-            row.querySelector('.qty-input')?.value || "1",    // Qty
-            row.querySelector('td:nth-child(7)').textContent, // Amount
-            row.querySelector('.handling-charge-cell').textContent // Handling Charges
+    // --- INVOICE SUMMARY ---
+    let invoiceSummary = [];
+    rows.forEach(row => {
+        invoiceSummary.push([
+            0, // Placeholder for Seq No (will be filled in after sorting)
+            row.querySelector('td:nth-child(3)')?.textContent || '',  // Invoice Number
+            row.querySelector('td:nth-child(2)')?.textContent || '',  // Style Code
+            row.querySelector('.qty-input')?.value || '1',            // Qty
+            row.querySelector('td:nth-child(7)')?.textContent || '',  // Amount
+            row.querySelector('.handling-charge-cell')?.textContent || '' // Handling Charge
         ]);
     });
 
-    // Totals for summary
-    let totalQty = document.getElementById('totalQty').textContent;
-    let totalHandling = document.getElementById('totalHandlingCharge').textContent;
-    if (invoiceSummaryRows.length > 0) {
-        // Add totals row
-        invoiceSummaryRows.push([
-            "", "Totals:", "", totalQty, "", totalHandling
-        ]);
+    // Sort by Invoice Number (2nd column, index 1)
+    invoiceSummary.sort((a, b) => {
+        const invA = a[1].toUpperCase();
+        const invB = b[1].toUpperCase();
+        return invA.localeCompare(invB);
+    });
 
+    // Add sequence numbers after sorting
+    invoiceSummary = invoiceSummary.map((row, index) => {
+        row[0] = index + 1;
+        return row;
+    });
+
+    // Add totals row
+    invoiceSummary.push(["", "Totals:", "", totalQty, "", totalHandling]);
+
+    const afterMainY = (doc.lastAutoTable?.finalY || 80) + 16;
+
+    if (invoiceSummary.length > 1) { // There is at least one invoice
         doc.setFont("helvetica", "bold");
         doc.setFontSize(14);
         doc.setTextColor(10, 10, 10);
-        doc.text("Invoice Numbers Summary", 10, endY + 8);
+        doc.text("Invoice Numbers Summary", 10, afterMainY);
 
         doc.autoTable({
             head: [["Seq No.", "Invoice Number", "Style Code", "Qty", "Amount", "Handling Charges"]],
-            body: invoiceSummaryRows,
-            startY: endY + 12,
+            body: invoiceSummary,
+            startY: afterMainY + 4,
             theme: 'grid',
             styles: { fontSize: 10, cellPadding: 2 },
             headStyles: {
@@ -744,14 +746,19 @@ function downloadPDF() {
             },
             margin: { left: 6, right: 6 },
             columnStyles: {
-                0: {cellWidth: 14}, // Seq No
-                1: {cellWidth: 36}, // Invoice Number
-                2: {cellWidth: 35}, // Style Code
-                3: {cellWidth: 16}, // Qty
-                4: {cellWidth: 28}, // Amount
-                5: {cellWidth: 32}  // Handling Charges
+                0: { cellWidth: 14 },
+                1: { cellWidth: 36 },
+                2: { cellWidth: 35 },
+                3: { cellWidth: 16 },
+                4: { cellWidth: 28 },
+                5: { cellWidth: 32 }
             }
         });
+    } else {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(200, 0, 0);
+        doc.text("No Invoice Summary to Display", 10, afterMainY);
     }
 
     doc.save("returns_handling_report.pdf");
